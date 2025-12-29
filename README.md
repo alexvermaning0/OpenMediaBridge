@@ -1,4 +1,4 @@
-# OpenMediaBridge
+<img width="708" height="169" alt="Nieuw project" src="https://github.com/user-attachments/assets/4ec1e2f0-0489-44c6-9ed1-50fe8987b335" />
 
 A Windows application that bridges media playback information from Windows Media Session to WebSocket clients. Designed for integration with Resonite VR and other applications.
 
@@ -302,6 +302,3 @@ dotnet run
 
 ---
 
-## License
-
-MIT
