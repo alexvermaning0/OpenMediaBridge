@@ -28,6 +28,9 @@ namespace OpenMediaBridge.Lyrics.Fetchers
             public string plainLyrics { get; set; }
         }
 
+        // Debug logging action - set by LyricsFetcher
+        public static Action<string> DebugLog { get; set; }
+
         /// <summary>
         /// Get all synced lyrics results (for cycling through alternatives)
         /// </summary>
@@ -40,19 +43,58 @@ namespace OpenMediaBridge.Lyrics.Fetchers
                 using var wc = new WebClient();
                 wc.Headers[HttpRequestHeader.UserAgent] = "OpenMediaBridge";
 
+                // Try search with both title and artist
                 var url = $"https://lrclib.net/api/search?track_name={Uri.EscapeDataString(title ?? string.Empty)}&artist_name={Uri.EscapeDataString(artist ?? string.Empty)}";
+                DebugLog?.Invoke($"  LRCLib query: track=\"{title}\" artist=\"{artist}\"");
+                var searchResults = SearchAndParse(wc, url, title, artist);
+                results.AddRange(searchResults);
+                DebugLog?.Invoke($"  LRCLib results: {searchResults.Count}");
+                
+                // If no results and we have both title and artist, try with just title
+                if (results.Count == 0 && !string.IsNullOrEmpty(artist))
+                {
+                    DebugLog?.Invoke($"  LRCLib retry: track=\"{title}\" (no artist)");
+                    url = $"https://lrclib.net/api/search?track_name={Uri.EscapeDataString(title ?? string.Empty)}";
+                    searchResults = SearchAndParse(wc, url, title, artist);
+                    results.AddRange(searchResults);
+                    DebugLog?.Invoke($"  LRCLib results: {searchResults.Count}");
+                }
+                
+                // Also try a general query search as fallback
+                if (results.Count == 0)
+                {
+                    var query = string.IsNullOrEmpty(artist) ? title : $"{artist} {title}";
+                    DebugLog?.Invoke($"  LRCLib fallback: q=\"{query}\"");
+                    url = $"https://lrclib.net/api/search?q={Uri.EscapeDataString(query ?? string.Empty)}";
+                    searchResults = SearchAndParse(wc, url, title, artist);
+                    results.AddRange(searchResults);
+                    DebugLog?.Invoke($"  LRCLib results: {searchResults.Count}");
+                }
+            }
+            catch (Exception ex) 
+            { 
+                DebugLog?.Invoke($"  LRCLib error: {ex.Message}");
+            }
 
+            return results;
+        }
+        
+        private static List<LyricsResult> SearchAndParse(WebClient wc, string url, string title, string artist)
+        {
+            var results = new List<LyricsResult>();
+            
+            try
+            {
                 var json = wc.DownloadString(url);
                 var searchResults = JsonSerializer.Deserialize<List<SearchResult>>(json) ?? new List<SearchResult>();
                 
-                foreach (var result in searchResults)
+                foreach (var result in searchResults.Take(5)) // Limit to first 5
                 {
                     // Skip instrumental tracks
                     if (result.instrumental) continue;
-
-                    var getJson = wc.DownloadString($"https://lrclib.net/api/get/{result.id}");
-                    var get = JsonSerializer.Deserialize<LyricGet>(getJson);
-                    var lrc = get?.syncedLyrics ?? "";
+                    
+                    // Use syncedLyrics directly from search result (no extra API call needed!)
+                    var lrc = result.syncedLyrics ?? "";
                     
                     if (string.IsNullOrWhiteSpace(lrc)) continue;
 
@@ -76,7 +118,7 @@ namespace OpenMediaBridge.Lyrics.Fetchers
                 }
             }
             catch { }
-
+            
             return results;
         }
 

@@ -40,6 +40,9 @@ namespace OpenMediaBridge.Lyrics.Fetchers
         public static void SetLogCallback(Action<string> callback)
         {
             _logCallback = callback;
+            // Also set on fetchers
+            LRCLibFetcher.DebugLog = callback;
+            NetEaseFetcher.DebugLog = callback;
         }
 
         private static void Log(string message)
@@ -55,6 +58,18 @@ namespace OpenMediaBridge.Lyrics.Fetchers
         {
             return !string.Equals(title ?? "", _currentTitle ?? "", StringComparison.OrdinalIgnoreCase)
                 || !string.Equals(artist ?? "", _currentArtist ?? "", StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// Force a refetch by clearing internal state
+        /// </summary>
+        public void ForceRefetch()
+        {
+            _currentTitle = "";
+            _currentArtist = "";
+            _allResults.Clear();
+            _currentIndex = 0;
+            CurrentSource = "None";
         }
 
         public void NextLyrics()
@@ -87,7 +102,10 @@ namespace OpenMediaBridge.Lyrics.Fetchers
             return source;
         }
 
-        public void FetchLyrics(string title, string artist, int durationMs = 0)
+        // Track current fetch to allow cancellation
+        private int _fetchId = 0;
+
+        public void FetchLyrics(string title, string artist, int durationMs = 0, bool isBrowser = false)
         {
             // Store what we're fetching for - used to validate results
             var fetchTitle = title ?? "";
@@ -98,15 +116,22 @@ namespace OpenMediaBridge.Lyrics.Fetchers
             _allResults = new List<LyricsResult>();
             _currentIndex = 0;
             CurrentSource = "None";
+            
+            // Increment fetch ID to invalidate any ongoing fetches
+            var thisFetchId = ++_fetchId;
 
-            // Helper to add result and update current if it's better
-            // Minimum score threshold - reject bad matches
-            const int MinScoreThreshold = 800;
+            // Higher threshold for normal apps, lower for browsers (YouTube titles are messy)
+            int minScoreThreshold = isBrowser ? 200 : 800;
+            
+            // Check if this fetch is still valid
+            bool IsStillValid() => thisFetchId == _fetchId && 
+                                   fetchTitle == _currentTitle && 
+                                   fetchArtist == _currentArtist;
 
             void AddResult(LyricsResult result)
             {
                 // Check if song changed during fetch
-                if (fetchTitle != _currentTitle || fetchArtist != _currentArtist) return;
+                if (!IsStillValid()) return;
                 
                 // Check for empty fingerprint
                 var fingerprint = GetLyricsFingerprint(result.Lines);
@@ -115,10 +140,10 @@ namespace OpenMediaBridge.Lyrics.Fetchers
                 // Calculate score first
                 int newScore = ScoreResult(result, fetchTitle, fetchArtist, durationMs);
                 
-                // Reject low-scoring results (except cache which was previously verified)
-                if (result.Source != "cache" && newScore < MinScoreThreshold)
+                // Reject very low-scoring results (except cache which was previously verified)
+                if (result.Source != "cache" && result.Source != "localdb" && newScore < minScoreThreshold)
                 {
-                    Log($"✗ Rejected: {result.Source} (score: {newScore} < {MinScoreThreshold})");
+                    Log($"✗ Rejected: {result.Source} (score: {newScore} < {minScoreThreshold})");
                     return;
                 }
                 
@@ -175,12 +200,13 @@ namespace OpenMediaBridge.Lyrics.Fetchers
             }
 
             // 2) local database
-            if (LocalDatabaseFetcher.IsAvailable())
+            if (IsStillValid() && LocalDatabaseFetcher.IsAvailable())
             {
                 Log("Trying: Local Database");
                 var localResults = LocalDatabaseFetcher.GetAllLyrics(fetchTitle, fetchArtist, durationMs);
                 foreach (var localResult in localResults.Where(r => r.Lines.Count > 0))
                 {
+                    if (!IsStillValid()) break;
                     AddResult(localResult);
                 }
                 
@@ -193,48 +219,60 @@ namespace OpenMediaBridge.Lyrics.Fetchers
             {
                 Log("Offline mode - skipping online sources");
             }
-            else
+            else if (IsStillValid())
             {
                 // 3) lrclib API - get all synced results
                 Log("Trying: LRCLib API");
                 var lrclibResults = LRCLibFetcher.GetAllLyrics(fetchTitle, fetchArtist, durationMs);
                 foreach (var lrcResult in lrclibResults.Where(r => r.Lines.Count > 0))
                 {
+                    if (!IsStillValid()) break;
                     AddResult(lrcResult);
                 }
                 
                 if (lrclibResults.Count == 0)
                     Log("✗ LRCLib found nothing");
 
-                // 4) netease
-                Log("Trying: NetEase");
-                var netease = NetEaseFetcher.GetLyrics(fetchTitle, fetchArtist);
-                if (netease != null && netease.Count > 0)
+                // 4) netease - only if still valid
+                if (IsStillValid())
                 {
-                    var result = new LyricsResult
+                    Log("Trying: NetEase");
+                    var netease = NetEaseFetcher.GetLyrics(fetchTitle, fetchArtist);
+                    if (netease != null && netease.Count > 0)
                     {
-                        Lines = netease,
-                        Source = "netease",
-                        Artist = fetchArtist,
-                        Title = fetchTitle
-                    };
-                    AddResult(result);
-                }
-                else
-                {
-                    Log("✗ NetEase found nothing");
+                        var result = new LyricsResult
+                        {
+                            Lines = netease,
+                            Source = "netease",
+                            Artist = fetchArtist,
+                            Title = fetchTitle
+                        };
+                        AddResult(result);
+                    }
+                    else
+                    {
+                        Log("✗ NetEase found nothing");
+                    }
                 }
 
-                // 5) Plain lyrics fallback (if enabled)
-                if (PlainLyricsFallback)
+                // 5) Plain lyrics fallback (if enabled and still valid)
+                if (IsStillValid() && PlainLyricsFallback)
                 {
                     Log("Trying: Plain lyrics fallback");
                     var plainResults = LRCLibFetcher.GetPlainLyrics(fetchTitle, fetchArtist, durationMs);
                     foreach (var plainResult in plainResults.Where(r => r.Lines.Count > 0))
                     {
+                        if (!IsStillValid()) break;
                         AddResult(plainResult);
                     }
                 }
+            }
+
+            // Check if fetch was cancelled
+            if (!IsStillValid())
+            {
+                Log("Fetch cancelled - song changed");
+                return;
             }
 
             // Final summary
@@ -334,6 +372,70 @@ namespace OpenMediaBridge.Lyrics.Fetchers
             return string.Join("|", texts);
         }
 
+        private static bool IsCJKChar(char c)
+        {
+            return (c >= 0x4E00 && c <= 0x9FFF) ||  // CJK Unified Ideographs (Chinese)
+                   (c >= 0x3040 && c <= 0x309F) ||  // Hiragana (Japanese)
+                   (c >= 0x30A0 && c <= 0x30FF) ||  // Katakana (Japanese)
+                   (c >= 0xAC00 && c <= 0xD7AF);    // Hangul (Korean)
+        }
+
+        private static List<string> TokenizeForWordSync(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return new List<string>();
+            
+            // Check if text contains CJK characters
+            bool hasCJK = text.Any(IsCJKChar);
+            
+            if (!hasCJK)
+            {
+                // Normal space-based tokenization for non-CJK
+                return text.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToList();
+            }
+            
+            // For CJK: split each character individually
+            var tokens = new List<string>();
+            var currentToken = new System.Text.StringBuilder();
+            
+            foreach (char c in text)
+            {
+                bool isCJK = IsCJKChar(c);
+                bool isSpace = char.IsWhiteSpace(c);
+                
+                if (isSpace)
+                {
+                    // Flush any pending token
+                    if (currentToken.Length > 0)
+                    {
+                        tokens.Add(currentToken.ToString());
+                        currentToken.Clear();
+                    }
+                }
+                else if (isCJK)
+                {
+                    // Flush any pending non-CJK token
+                    if (currentToken.Length > 0)
+                    {
+                        tokens.Add(currentToken.ToString());
+                        currentToken.Clear();
+                    }
+                    // Each CJK character is its own token
+                    tokens.Add(c.ToString());
+                }
+                else
+                {
+                    // Non-CJK, non-space: accumulate (for mixed content like romaji)
+                    currentToken.Append(c);
+                }
+            }
+            
+            // Flush final token
+            if (currentToken.Length > 0)
+                tokens.Add(currentToken.ToString());
+            
+            return tokens;
+        }
+
         private bool IsDuplicateResult(LyricsResult newResult)
         {
             foreach (var existing in _allResults)
@@ -399,7 +501,8 @@ namespace OpenMediaBridge.Lyrics.Fetchers
             const int FullStopPauseMs = 250;
 
             // ---- Tokenize & weight ----
-            var rawTokens = (current.Text ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries).ToList();
+            var text = current.Text ?? "";
+            var rawTokens = TokenizeForWordSync(text);
             if (rawTokens.Count == 0) return "";
 
             int WeightOf(string s)

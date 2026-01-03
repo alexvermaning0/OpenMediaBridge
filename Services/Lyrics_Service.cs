@@ -110,8 +110,18 @@ namespace OpenMediaBridge.Services
             }
 
             var props = _wmService.CurrentMediaProperties;
-            var title = props.Title ?? "";
-            var artist = props.Artist ?? "";
+            var rawTitle = props.Title ?? "";
+            var rawArtist = props.Artist ?? "";
+            
+            // Get source app to determine if we need YouTube-style parsing
+            var sourceApp = _wmService.CurrentMediaSession.SourceAppUserModelId ?? "";
+            
+            // Check if source is a browser
+            var browserApps = new[] { "chrome", "firefox", "brave", "edge", "opera", "safari", "chromium", "vivaldi" };
+            bool isBrowser = browserApps.Any(b => sourceApp.ToLowerInvariant().Contains(b));
+
+            // Parse title/artist based on source app
+            var (title, artist) = ParseMediaTitle(rawTitle, rawArtist, sourceApp);
 
             if (string.IsNullOrEmpty(title) && string.IsNullOrEmpty(artist))
             {
@@ -167,8 +177,12 @@ namespace OpenMediaBridge.Services
             // new song fetch?
             if (_lyricsFetcher.NeedsNewSong(title, artist))
             {
-                DebugLog($"Fetching lyrics: {title} - {artist}");
-                _lyricsFetcher.FetchLyrics(title, artist, (int)timeline.EndTime.TotalMilliseconds);
+                if (isBrowser && (rawTitle != title || rawArtist != artist))
+                {
+                    DebugLog($"Parsed: \"{rawTitle}\" → title=\"{title}\" artist=\"{artist}\"");
+                }
+                DebugLog($"Fetching lyrics: {title} - {artist} (browser: {isBrowser})");
+                _lyricsFetcher.FetchLyrics(title, artist, (int)timeline.EndTime.TotalMilliseconds, isBrowser);
                 _lastTitle = title;
                 _lastArtist = artist;
                 _currentLyric = "";
@@ -325,6 +339,8 @@ namespace OpenMediaBridge.Services
                             LyricsFetcher.OfflineMode = _offlineMode;
                             DebugLog($"Offline mode: {(_offlineMode ? "ON" : "OFF")}");
                             OnStatusChanged?.Invoke("offline", _offlineMode.ToString().ToLower());
+                            // Refetch to apply the change
+                            _lyricsFetcher.ForceRefetch();
                             break;
 
                         case ConsoleKey.C:
@@ -332,6 +348,8 @@ namespace OpenMediaBridge.Services
                             LyricsFetcher.FilterCjkLyrics = _cjkFilter;
                             DebugLog($"CJK filter: {(_cjkFilter ? "ON" : "OFF")}");
                             OnStatusChanged?.Invoke("cjk", _cjkFilter.ToString().ToLower());
+                            // Refetch to apply the change
+                            _lyricsFetcher.ForceRefetch();
                             break;
 
                         case ConsoleKey.P:
@@ -339,6 +357,8 @@ namespace OpenMediaBridge.Services
                             LyricsFetcher.PlainLyricsFallback = _plainLyricsFallback;
                             DebugLog($"Plain lyrics fallback: {(_plainLyricsFallback ? "ON" : "OFF")}");
                             OnStatusChanged?.Invoke("plain", _plainLyricsFallback.ToString().ToLower());
+                            // Refetch to apply the change
+                            _lyricsFetcher.ForceRefetch();
                             break;
 
                         // Lyrics controls
@@ -352,14 +372,14 @@ namespace OpenMediaBridge.Services
 
                         case ConsoleKey.R:
                             // Force re-fetch
-                            _lastTitle = "";
-                            _lastArtist = "";
+                            _lyricsFetcher.ForceRefetch();
                             DebugLog("Forcing lyrics re-fetch...");
                             break;
 
                         case ConsoleKey.X:
-                            // Clear cache for current song
+                            // Clear cache for current song and refetch
                             ClearCurrentSongCache();
+                            _lyricsFetcher.ForceRefetch();
                             break;
                     }
                 }
@@ -699,6 +719,161 @@ namespace OpenMediaBridge.Services
         public string GetFullLyricsText()
         {
             return _lyricsFetcher.GetFullLyricsText();
+        }
+
+        /// <summary>
+        /// Parse title to extract song title and artist
+        /// Only does YouTube-style parsing for browsers, uses raw values for music apps
+        /// </summary>
+        private (string title, string artist) ParseMediaTitle(string rawTitle, string rawArtist, string sourceApp)
+        {
+            if (string.IsNullOrEmpty(rawTitle))
+                return (rawTitle, rawArtist);
+
+            string title = rawTitle;
+            string artist = rawArtist ?? "";
+            
+            // Check if source is a browser (needs YouTube-style parsing)
+            var browserApps = new[] { "chrome", "firefox", "brave", "edge", "opera", "safari", "chromium", "vivaldi" };
+            bool isBrowser = browserApps.Any(b => sourceApp.ToLowerInvariant().Contains(b));
+            
+            // If not a browser (Spotify, Apple Music, etc.), just return as-is
+            if (!isBrowser)
+            {
+                return (title, artist);
+            }
+            
+            // Browser detected - do YouTube-style parsing
+            
+            // Extract artist from Japanese brackets 【Artist】 at the START of title
+            var bracketMatch = System.Text.RegularExpressions.Regex.Match(title, @"^\u3010(.+?)\u3011\s*");
+            if (bracketMatch.Success)
+            {
+                artist = bracketMatch.Groups[1].Value.Trim();
+                title = title.Substring(bracketMatch.Length).Trim();
+            }
+            
+            // Extract title from Japanese quotes「Title」
+            var quoteMatch = System.Text.RegularExpressions.Regex.Match(title, @"\u300C(.+?)\u300D");
+            if (quoteMatch.Success)
+            {
+                // If we found a title in quotes, extract it
+                string quotedTitle = quoteMatch.Groups[1].Value.Trim();
+                // The part before the quote might be the artist
+                string beforeQuote = title.Substring(0, quoteMatch.Index).Trim();
+                if (string.IsNullOrEmpty(artist) && !string.IsNullOrEmpty(beforeQuote))
+                {
+                    artist = beforeQuote;
+                }
+                title = quotedTitle;
+            }
+            
+            // Extract title from Japanese brackets『Title』
+            var bracketMatch2 = System.Text.RegularExpressions.Regex.Match(title, @"\u300E(.+?)\u300F");
+            if (bracketMatch2.Success)
+            {
+                string bracketedTitle = bracketMatch2.Groups[1].Value.Trim();
+                string beforeBracket = title.Substring(0, bracketMatch2.Index).Trim();
+                // Clean trailing punctuation from artist part
+                beforeBracket = beforeBracket.TrimEnd('.', '。', ' ');
+                if (string.IsNullOrEmpty(artist) && !string.IsNullOrEmpty(beforeBracket))
+                {
+                    artist = beforeBracket;
+                }
+                title = bracketedTitle;
+            }
+
+            // Remove common suffixes
+            var suffixPatterns = new[]
+            {
+                @"\s*\(Official\s*(Music\s*)?(Video|Audio|Lyric\s*Video|Visualizer|MV)?\)",
+                @"\s*\[Official\s*(Music\s*)?(Video|Audio|Lyric\s*Video|Visualizer|MV)?\]",
+                @"\s*\(Lyric\s*Video\)",
+                @"\s*\[Lyric\s*Video\]",
+                @"\s*\(Audio\)",
+                @"\s*\[Audio\]",
+                @"\s*\(HD\)",
+                @"\s*\[HD\]",
+                @"\s*\(HQ\)",
+                @"\s*\[HQ\]",
+                @"\s*\(4K\)",
+                @"\s*\[4K\]",
+                @"\s*\(Lyrics\)",
+                @"\s*\[Lyrics\]",
+                @"\s*\(MV\)",
+                @"\s*\[MV\]",
+                @"\s*\(PV\)",
+                @"\s*\[PV\]",
+                @"\s*\(Live.*?\)",
+                @"\s*\[Live.*?\]",
+                @"\s*MV\s*$",              // MV at end
+                @"\s*\u00d7\s*.*$",        // × and everything after (× TV Anime...)
+                @"\s*\(ZUTOMAYO.*?\)",     // (ZUTOMAYO...) 
+                @"\s*\u3010.*?\u3011",     // 【...】 remaining
+                @"\s*\u300C.*?\u300D",     // 「...」 remaining  
+                @"\s*\u300E.*?\u300F",     // 『...』 remaining
+            };
+
+            foreach (var pattern in suffixPatterns)
+            {
+                title = System.Text.RegularExpressions.Regex.Replace(
+                    title, pattern, "", 
+                    System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            }
+
+            title = title.Trim();
+
+            // Handle " / " - dual language titles, take first part
+            if (title.Contains(" / "))
+            {
+                title = title.Split(new[] { " / " }, StringSplitOptions.RemoveEmptyEntries)[0].Trim();
+            }
+
+            // Try to extract artist with " - " separator (only if we don't have artist yet)
+            if (string.IsNullOrEmpty(artist) && title.Contains(" - "))
+            {
+                var parts = title.Split(new[] { " - " }, 2, StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length == 2)
+                {
+                    string p1 = parts[0].Trim();
+                    string p2 = parts[1].Trim();
+                    
+                    // Check if either has feat./ft. - that indicates artist side
+                    bool p2HasFeat = System.Text.RegularExpressions.Regex.IsMatch(
+                        p2, @"(feat\.|ft\.|featuring)", 
+                        System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                    
+                    if (p2HasFeat)
+                    {
+                        // "Title - Artist feat. X"
+                        title = p1;
+                        artist = p2;
+                    }
+                    else
+                    {
+                        // Assume "Artist - Title" (more common)
+                        artist = p1;
+                        title = p2;
+                    }
+                }
+            }
+
+            // Clean feat. from title and artist
+            title = System.Text.RegularExpressions.Regex.Replace(
+                title, @"\s*(feat\.|ft\.|featuring)\s*.*$", "", 
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase).Trim();
+                
+            if (!string.IsNullOrEmpty(artist))
+            {
+                artist = System.Text.RegularExpressions.Regex.Replace(
+                    artist, @"\s*(feat\.|ft\.|featuring)\s*.*$", "", 
+                    System.Text.RegularExpressions.RegexOptions.IgnoreCase).Trim();
+            }
+
+            // Clean quotes (including fancy quotes)
+            title = title.Trim('"', '\'', '\u201C', '\u201D', '\u2018', '\u2019');
+            
+            return (title, artist);
         }
 
         public void Dispose()
