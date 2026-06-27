@@ -1,5 +1,5 @@
 
-<img width="708" height="169" alt="Nieuw project" src="https://github.com/user-attachments/assets/4ec1e2f0-0489-44c6-9ed1-50fe8987b335" />
+<img width="100%" height="100%" alt="4c067fc2-4f68-4387-9267-ee5e4349e19c" src="https://github.com/user-attachments/assets/1eed9bff-5a1e-40f3-8a6d-62b23a73bbfa" />
 
 Bridges media playback information from your device's media session to WebSocket clients. Designed for integration with Resonite VR and other applications.
 
@@ -17,7 +17,7 @@ Runs on **Windows** (SMTC), **Linux** (MPRIS/playerctl), and **Android** (standa
 
 ## Lyrics UI (Optional)
 
-<img width="3840" height="2160" alt="OBS Templates preview" src="https://github.com/user-attachments/assets/69aa966d-d659-4612-ab0f-88286338914f" />
+<img width="3839" height="2160" alt="image" src="https://github.com/user-attachments/assets/7229fad7-a0c7-4bc0-a516-5f623f6596cb" />
 
 > [!TIP]
 > **Want a nice lyrics UI?** Download `OBS Templates.zip` from the latest release and open `full.html` in any web browser. You get a full Apple Music-style lyrics viewer with album art, scrolling lyrics, and word sync — no extra software needed.
@@ -346,7 +346,7 @@ Receive updates:
 
 ## OBS Templates
 
-<img width="3840" height="2160" alt="OBS Templates preview" src="https://github.com/user-attachments/assets/69aa966d-d659-4612-ab0f-88286338914f" />
+<img width="3839" height="2160" alt="image" src="https://github.com/user-attachments/assets/7229fad7-a0c7-4bc0-a516-5f623f6596cb" />
 
 *`full.html` showing the Apple Music-style immersive view with album art, scrolling full-song lyrics, and blurred background. Alongside it, the OMB console showing live lyric sync.*
 
