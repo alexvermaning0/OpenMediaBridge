@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OpenMediaBridge - Transparent Lyrics</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --active-opacity: 1;
+    --idle-opacity: 0.85;
+    --sung-opacity: 0.55;
+    --ts: 0.5s;
+    /* Crop OBS source height to match this value */
+    --panel-height: 260px;
+    --art-size: 180px;
+  }
+
+  html, body {
+    width: 1920px;
+    height: 1080px;
+    overflow: hidden;
+    background: transparent;
+    font-family: 'Figtree', sans-serif;
+  }
+
+  /* ── Top panel — crop to this in OBS ── */
+  #panel {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: var(--panel-height);
+    display: flex;
+    align-items: stretch;
+    padding: 28px 52px;
+    gap: 28px;
+  }
+
+  /* ── Left: album art ── */
+  #art-wrap {
+    position: relative;
+    width: var(--art-size);
+    height: var(--art-size);
+    flex-shrink: 0;
+  }
+
+  #art-shadow {
+    position: absolute;
+    inset: 8px 4px;
+    bottom: -10px;
+    border-radius: 12px;
+    filter: blur(18px);
+    opacity: 0.7;
+    background-size: cover;
+    background-position: center;
+    transition: background-image 1.5s ease;
+    z-index: 0;
+  }
+
+  #art {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+    border-radius: 12px;
+    object-fit: cover;
+    display: block;
+    box-shadow: 0 8px 28px rgba(0,0,0,0.55);
+  }
+
+  /* ── Right: lyrics + track info ── */
+  #right {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0;
+    overflow: hidden;
+    mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 82%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 82%, transparent 100%);
+  }
+
+  /* Track info */
+  #track-info {
+    flex-shrink: 0;
+    padding: 0 0 10px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  #title {
+    font-size: 15px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.92);
+    letter-spacing: -0.02em;
+    text-shadow: 0 1px 8px rgba(0,0,0,0.7);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  #subtitle {
+    font-size: 12px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.48);
+    text-shadow: 0 1px 6px rgba(0,0,0,0.7);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Progress bar */
+  #progress-section {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding-bottom: 10px;
+  }
+
+  #progress-track {
+    height: 3px;
+    background: rgba(255,255,255,0.18);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  #progress-fill {
+    height: 100%;
+    background: rgba(255,255,255,0.82);
+    width: 0%;
+    transition: width 5s linear;
+    border-radius: 2px;
+  }
+
+  #time-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.35);
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+  }
+
+  /* Lyrics scroll — fills remaining space */
+  #lyrics-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    position: relative;
+  }
+
+  #lyrics-inner {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding-top: 50%;
+    padding-bottom: 50%;
+    transition: transform 0.65s cubic-bezier(0.32, 1.1, 0.6, 1);
+    will-change: transform;
+  }
+
+  .lyric-line {
+    font-size: clamp(16px, 1.7vw, 24px);
+    font-weight: 800;
+    line-height: 1.25;
+    letter-spacing: -0.025em;
+    color: white;
+    opacity: var(--idle-opacity);
+    transform: scale(0.97) translateX(-3px);
+    transform-origin: left center;
+    transition:
+      opacity var(--ts) cubic-bezier(0.61, 1, 0.88, 1),
+      transform var(--ts) cubic-bezier(0.61, 1, 0.88, 1);
+    text-shadow: 0 1px 8px rgba(0,0,0,0.6);
+    padding: 2px 0;
+    word-break: break-word;
+    will-change: transform, opacity;
+  }
+
+  .lyric-line.active {
+    opacity: var(--active-opacity);
+    transform: scale(1) translateX(0);
+    text-shadow: 0 2px 12px rgba(0,0,0,0.7), 0 0 30px rgba(255,255,255,0.08);
+  }
+
+  .lyric-line.sung {
+    opacity: var(--sung-opacity);
+    transform: scale(0.94) translateX(-4px);
+  }
+
+  .lyric-line .ws-active {
+    color: #fde68a;
+    text-shadow: 0 1px 6px rgba(0,0,0,0.6), 0 0 20px rgba(253,230,138,0.4);
+  }
+</style>
+</head>
+<body>
+
+<div id="panel">
+  <div id="art-wrap">
+    <div id="art-shadow"></div>
+    <img id="art" src="" alt="">
+  </div>
+
+  <div id="right">
+    <div id="lyrics-scroll">
+      <div id="lyrics-inner"></div>
+    </div>
+    <div id="track-info">
+      <div id="title">—</div>
+      <div id="subtitle">—</div>
+    </div>
+    <div id="progress-section">
+      <div id="progress-track">
+        <div id="progress-fill"></div>
+      </div>
+      <div id="time-row">
+        <span id="time-pos">0:00</span>
+        <span id="time-dur">0:00</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const WS_MEDIA_URL    = 'ws://localhost:8080';
+const WS_LYRICS_URL   = 'ws://localhost:6555';
+const RECONNECT_DELAY = 3000;
+const HISTORY = 2;
+const FUTURE  = 3;
+
+const artEl       = document.getElementById('art');
+const artShadow   = document.getElementById('art-shadow');
+const titleEl     = document.getElementById('title');
+const subtitleEl  = document.getElementById('subtitle');
+const progFill    = document.getElementById('progress-fill');
+const timePos     = document.getElementById('time-pos');
+const timeDur     = document.getElementById('time-dur');
+const lyricsInner = document.getElementById('lyrics-inner');
+
+let state = {
+  title: '', artist: '', source: '', cover: '',
+  playing: true, pos: 0, dur: 0,
+  currentLyric: '', wordSync: false
+};
+
+let lyricHistory = [];
+let activeIndex  = -1;
+
+function fmt(ms) {
+  const s = Math.floor(ms / 1000);
+  return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+}
+
+function updateSubtitle() {
+  const parts = [];
+  if (state.source) parts.push(state.source);
+  if (state.artist) parts.push(state.artist);
+  subtitleEl.textContent = parts.join(' · ') || '—';
+}
+
+let timerMs = 0;
+const DRIFT_THRESHOLD = 3000;
+
+setInterval(() => {
+  if (!state.playing || state.dur <= 0) return;
+  timerMs = Math.min(timerMs + 1000, state.dur);
+  timePos.textContent = fmt(timerMs);
+  progFill.style.width = Math.min(timerMs / state.dur, 1) * 100 + '%';
+}, 1000);
+
+function updateProgress() {
+  if (state.dur <= 0) return;
+  timeDur.textContent = fmt(state.dur);
+}
+
+function stripTags(s) {
+  return (s || '').replace(/<color=[^>]+>/g, '').replace(/<\/color>/g, '');
+}
+
+function renderWordSync(raw) {
+  return (raw || '')
+    .replace(/<color=yellow>(.*?)<\/color>/g, '<span class="ws-active">$1</span>')
+    .replace(/<color=[^>]+>(.*?)<\/color>/g, '$1');
+}
+
+function updateLyric(rawText) {
+  const text = stripTags(rawText);
+
+  if (text === state.currentLyric) {
+    if (state.wordSync) {
+      const activeEl = lyricsInner.querySelector('.lyric-line.active');
+      if (activeEl) activeEl.innerHTML = renderWordSync(rawText);
+    }
+    return;
+  }
+
+  state.currentLyric = text;
+
+  if (text) {
+    if (activeIndex >= 0) lyricHistory[activeIndex].status = 'sung';
+    lyricHistory.push({ text, raw: rawText, status: 'active' });
+    if (lyricHistory.length > 30) lyricHistory.shift();
+    activeIndex = lyricHistory.length - 1;
+  } else {
+    if (activeIndex >= 0) lyricHistory[activeIndex].status = 'sung';
+  }
+
+  rebuildDOM();
+  requestAnimationFrame(scrollToActive);
+}
+
+function rebuildDOM() {
+  lyricsInner.innerHTML = '';
+  if (lyricHistory.length === 0) return;
+
+  const start = Math.max(0, activeIndex - HISTORY);
+  const end   = Math.min(lyricHistory.length - 1, activeIndex + FUTURE);
+
+  for (let i = start; i <= end; i++) {
+    const item = lyricHistory[i];
+    const div  = document.createElement('div');
+    div.className = 'lyric-line ' + item.status;
+    if (item.status === 'active' && state.wordSync) {
+      div.innerHTML = renderWordSync(item.raw);
+    } else {
+      div.textContent = item.text;
+    }
+    lyricsInner.appendChild(div);
+  }
+}
+
+function scrollToActive() {
+  const activeEl = lyricsInner.querySelector('.lyric-line.active');
+  if (!activeEl) return;
+  const scrollEl = document.getElementById('lyrics-scroll');
+  const scrollH  = scrollEl.offsetHeight;
+  const lineCenter = activeEl.offsetTop + activeEl.offsetHeight / 2;
+  const offset = lineCenter - scrollH / 2;
+  lyricsInner.style.transform = `translateY(${-offset}px)`;
+}
+
+function handleMessage(key, val) {
+  switch (key) {
+    case 'title':
+      if (val === state.title) break;
+      state.title = val;
+      titleEl.textContent = val || '—';
+      timerMs = 0;
+      state.dur = 0;
+      timePos.textContent = fmt(0);
+      timeDur.textContent = fmt(0);
+      progFill.style.transition = 'none';
+      progFill.style.width = '0%';
+      progFill.offsetWidth; // force reflow so transition suppression takes effect
+      progFill.style.transition = '';
+      lyricHistory = [];
+      activeIndex  = -1;
+      state.currentLyric = '';
+      lyricsInner.innerHTML = '';
+      lyricsInner.style.transform = '';
+      break;
+    case 'artist':
+      state.artist = val;
+      updateSubtitle();
+      break;
+    case 'source':
+      state.source = val;
+      updateSubtitle();
+      break;
+    case 'cover':
+      if (val && val !== state.cover) {
+        state.cover = val;
+        artEl.src = val;
+        artShadow.style.backgroundImage = `url(${val})`;
+      }
+      break;
+    case 'pos': {
+      state.pos = parseInt(val);
+      if (state.dur > 0) {
+        const drift = state.pos - timerMs;
+        if (drift > DRIFT_THRESHOLD || drift < -15000) {
+          timerMs = state.pos;
+          timePos.textContent = fmt(timerMs);
+        }
+      }
+      updateProgress();
+      break;
+    }
+    case 'dur':
+      state.dur = parseInt(val);
+      updateProgress();
+      break;
+    case 'lyric':
+      updateLyric(val);
+      break;
+    case 'status':
+      state.playing = val === 'true';
+      break;
+    case 'wordsync':
+      state.wordSync = val === 'true';
+      break;
+  }
+}
+
+function makeSocket(url, onOpen, onClose) {
+  const ws = new WebSocket(url);
+  ws.onopen  = () => onOpen && onOpen();
+  ws.onclose = () => {
+    onClose && onClose();
+    setTimeout(() => makeSocket(url, onOpen, onClose), RECONNECT_DELAY);
+  };
+  ws.onmessage = (e) => {
+    const i = e.data.indexOf(':');
+    if (i < 0) return;
+    handleMessage(e.data.substring(0, i), e.data.substring(i + 1));
+  };
+}
+
+makeSocket(WS_MEDIA_URL, null, null);
+makeSocket(WS_LYRICS_URL, null, null);
+</script>
+</body>
+</html>

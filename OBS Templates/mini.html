@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OpenMediaBridge - Mini Player</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: transparent;
+    font-family: 'DM Sans', sans-serif;
+    width: 420px;
+    padding: 12px;
+    overflow: hidden;
+  }
+
+  #player {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: rgba(10, 10, 14, 0.82);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 16px;
+    padding: 12px 16px 12px 12px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 0.4s ease, transform 0.4s ease;
+  }
+
+  #player.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  #player.hidden {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  /* Album Art */
+  #art-container {
+    position: relative;
+    flex-shrink: 0;
+    width: 56px;
+    height: 56px;
+  }
+
+  #art {
+    width: 56px;
+    height: 56px;
+    border-radius: 10px;
+    object-fit: cover;
+    display: block;
+    background: #1a1a2e;
+  }
+
+  #art-glow {
+    position: absolute;
+    inset: -4px;
+    border-radius: 14px;
+    filter: blur(10px);
+    opacity: 0.5;
+    z-index: -1;
+    background-size: cover;
+    background-position: center;
+    transition: background-image 1s ease;
+  }
+
+  /* Playing indicator dots */
+  #playing-dots {
+    position: absolute;
+    bottom: -2px;
+    right: -2px;
+    display: flex;
+    gap: 2px;
+    align-items: flex-end;
+    background: rgba(10,10,14,0.9);
+    border-radius: 4px;
+    padding: 2px 3px;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  #playing-dots.active { opacity: 1; }
+
+  #playing-dots span {
+    display: block;
+    width: 2px;
+    background: #4ade80;
+    border-radius: 1px;
+    animation: bar 1.2s ease-in-out infinite;
+  }
+
+  #playing-dots span:nth-child(1) { height: 6px; animation-delay: 0s; }
+  #playing-dots span:nth-child(2) { height: 10px; animation-delay: 0.2s; }
+  #playing-dots span:nth-child(3) { height: 7px; animation-delay: 0.4s; }
+
+  @keyframes bar {
+    0%, 100% { transform: scaleY(0.4); }
+    50% { transform: scaleY(1); }
+  }
+
+  /* Info */
+  #info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  #track-info {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  #title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    letter-spacing: -0.01em;
+  }
+
+  #artist {
+    font-size: 11px;
+    font-weight: 400;
+    color: rgba(255,255,255,0.5);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Lyric */
+  #lyric-wrap {
+    position: relative;
+    height: 34px;
+    overflow: hidden;
+  }
+
+  #lyric {
+    font-size: 11.5px;
+    font-weight: 400;
+    color: rgba(255,255,255,0.75);
+    font-style: italic;
+    transition: opacity 0.2s ease;
+    line-height: 1.4;
+    word-break: break-word;
+  }
+
+  #lyric.changing {
+    opacity: 0;
+    transform: translateY(3px);
+    transition: opacity 0.15s ease, transform 0.15s ease;
+  }
+
+  /* Progress bar */
+  #progress-track {
+    height: 3px;
+    background: rgba(255,255,255,0.12);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 6px;
+  }
+
+  #progress-fill {
+    height: 100%;
+    background: rgba(255,255,255,0.75);
+    border-radius: 2px;
+    width: 0%;
+    transition: width 5s linear;
+  }
+
+  /* Paused state */
+  #player.paused #progress-fill {
+    opacity: 0.4;
+  }
+</style>
+</head>
+<body>
+
+<div id="player">
+  <div id="art-container">
+    <div id="art-glow"></div>
+    <img id="art" src="" alt="">
+    <div id="playing-dots">
+      <span></span><span></span><span></span>
+    </div>
+  </div>
+  <div id="info">
+    <div id="track-info">
+      <div id="title">—</div>
+      <div id="artist">—</div>
+    </div>
+    <div id="lyric-wrap">
+      <div id="lyric"></div>
+    </div>
+    <div id="progress-track">
+      <div id="progress-fill"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const WS_MEDIA_URL = "ws://localhost:8080";
+  const WS_LYRICS_URL = "ws://localhost:6555";
+  const RECONNECT_DELAY = 3000;
+
+  const player   = document.getElementById('player');
+  const artEl    = document.getElementById('art');
+  const artGlow  = document.getElementById('art-glow');
+  const titleEl  = document.getElementById('title');
+  const artistEl = document.getElementById('artist');
+  const lyricEl  = document.getElementById('lyric');
+  const progFill = document.getElementById('progress-fill');
+  const dots     = document.getElementById('playing-dots');
+
+  let state = {
+    title: '', artist: '', cover: '',
+    lyric: '', pos: 0, dur: 0, playing: false
+  };
+  let lyricTimeout = null;
+
+  function handleMessage(key, val) {
+    switch (key) {
+      case 'title':
+        state.title = val;
+        titleEl.textContent = val || '—';
+        break;
+      case 'artist':
+        state.artist = val;
+        artistEl.textContent = val || '—';
+        break;
+      case 'cover':
+        if (val !== state.cover) {
+          state.cover = val;
+          artEl.src = val;
+          artGlow.style.backgroundImage = `url(${val})`;
+        }
+        break;
+      case 'lyric':
+        setLyric(val);
+        break;
+      case 'pos':
+        state.pos = parseInt(val);
+        updateProgress();
+        break;
+      case 'dur':
+        state.dur = parseInt(val);
+        updateProgress();
+        break;
+      case 'status':
+        state.playing = val === 'true';
+        dots.classList.toggle('active', state.playing);
+        player.classList.toggle('paused', !state.playing);
+        break;
+    }
+  }
+
+  function updateProgress() {
+    if (state.dur <= 0) return;
+    const pct = Math.min(state.pos / state.dur, 1) * 100;
+    progFill.style.width = pct + '%';
+  }
+
+  function makeSocket(url, onConnect, onDisconnect) {
+    const ws = new WebSocket(url);
+    ws.onopen = onConnect;
+    ws.onclose = () => { if (onDisconnect) onDisconnect(); setTimeout(() => makeSocket(url, onConnect, onDisconnect), RECONNECT_DELAY); };
+    ws.onmessage = (e) => { const sep = e.data.indexOf(':'); if (sep < 0) return; handleMessage(e.data.substring(0, sep), e.data.substring(sep + 1)); };
+  }
+
+  let clearHoldTimer = null;
+
+  function setLyric(text) {
+    text = text.replace(/<color=[^>]+>/g, '').replace(/<\/color>/g, '');
+    if (text === state.lyric) return;
+    if (!text) {
+      clearTimeout(clearHoldTimer);
+      clearHoldTimer = setTimeout(() => doSetLyric(''), 1800);
+      return;
+    }
+    clearTimeout(clearHoldTimer);
+    doSetLyric(text);
+  }
+
+  function doSetLyric(text) {
+    if (text === state.lyric) return;
+    lyricEl.classList.add('changing');
+    clearTimeout(lyricTimeout);
+    lyricTimeout = setTimeout(() => {
+      state.lyric = text;
+      lyricEl.textContent = text;
+      lyricEl.classList.remove('changing');
+    }, 150);
+  }
+
+  // Port 8080 — media info (title, artist, cover, status)
+  makeSocket(WS_MEDIA_URL,
+    () => { player.classList.add('visible'); player.classList.remove('hidden'); },
+    () => { player.classList.add('hidden'); }
+  );
+
+  // Port 6555 — lyrics + progress (high frequency)
+  makeSocket(WS_LYRICS_URL, () => {}, null);
+</script>
+</body>
+</html>
