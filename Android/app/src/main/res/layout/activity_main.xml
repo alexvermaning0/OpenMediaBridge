@@ -1,0 +1,487 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#0a0a0a">
+
+    <!-- Blurred background art -->
+    <ImageView
+        android:id="@+id/ivBackground"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
+        android:alpha="0.4"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <!-- Dark color overlay for palette tinting -->
+    <View
+        android:id="@+id/colorOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#CC0a0a0a"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <!-- ── Status bar (top) ── -->
+    <LinearLayout
+        android:id="@+id/llTopBar"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingHorizontal="20dp"
+        android:paddingTop="16dp"
+        android:paddingBottom="8dp"
+        android:gravity="center_vertical"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <TextView
+            android:id="@+id/tvServerStatus"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:textColor="#66FFFFFF"
+            android:textSize="11sp"
+            android:fontFamily="monospace"
+            tools:text="ws://192.168.1.100:8080" />
+
+        <ImageButton
+            android:id="@+id/btnServerInfo"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@android:drawable/ic_menu_info_details"
+            android:alpha="0.5" />
+
+    </LinearLayout>
+
+    <!-- ── Main content (vertical stack on phone) ── -->
+    <LinearLayout
+        android:id="@+id/llContent"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:orientation="vertical"
+        android:paddingHorizontal="20dp"
+        app:layout_constraintTop_toBottomOf="@+id/llTopBar"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <!-- Album art + track info block -->
+        <LinearLayout
+            android:id="@+id/llArtBlock"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingBottom="16dp"
+            android:paddingTop="8dp"
+            android:paddingHorizontal="4dp">
+
+            <!-- Album art with shadow -->
+            <FrameLayout
+                android:layout_width="88dp"
+                android:layout_height="88dp"
+                android:layout_marginEnd="16dp">
+
+                <ImageView
+                    android:id="@+id/ivAlbumArtShadow"
+                    android:layout_width="80dp"
+                    android:layout_height="80dp"
+                    android:layout_gravity="center"
+                    android:layout_marginTop="6dp"
+                    android:alpha="0.55"
+                    android:scaleType="centerCrop" />
+
+                <ImageView
+                    android:id="@+id/ivAlbumArt"
+                    android:layout_width="80dp"
+                    android:layout_height="80dp"
+                    android:layout_gravity="center_horizontal|top"
+                    android:scaleType="centerCrop"
+                    android:background="@drawable/rounded_art_bg" />
+            </FrameLayout>
+
+            <!-- Track info -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:id="@+id/tvTitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="#F2FFFFFF"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:maxLines="2"
+                    android:ellipsize="end"
+                    android:letterSpacing="-0.02"
+                    tools:text="Never Gonna Give You Up" />
+
+                <TextView
+                    android:id="@+id/tvSubtitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="#73FFFFFF"
+                    android:textSize="12sp"
+                    android:layout_marginTop="2dp"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    tools:text="Spotify · Rick Astley" />
+
+                <TextView
+                    android:id="@+id/tvLyricsSource"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="#4DFFFFFF"
+                    android:textSize="10sp"
+                    android:layout_marginTop="4dp"
+                    tools:text="lrclib" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Progress bar -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingHorizontal="4dp"
+            android:paddingBottom="12dp">
+
+            <ProgressBar
+                android:id="@+id/progressBar"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="4dp"
+                android:max="1000"
+                android:progressDrawable="@drawable/progress_bar_drawable" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="4dp">
+
+                <TextView
+                    android:id="@+id/tvPosition"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:textColor="#60FFFFFF"
+                    android:textSize="10sp"
+                    android:fontFamily="monospace"
+                    tools:text="1:23" />
+
+                <TextView
+                    android:id="@+id/tvDuration"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="#60FFFFFF"
+                    android:textSize="10sp"
+                    android:fontFamily="monospace"
+                    tools:text="3:33" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- ── Lyrics area ── -->
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1">
+
+            <!-- RecyclerView for full lyrics -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvLyrics"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:overScrollMode="never"
+                android:fadingEdge="vertical"
+                android:requiresFadingEdge="vertical"
+                android:fadingEdgeLength="64dp"
+                android:paddingTop="48dp"
+                android:paddingBottom="48dp"
+                android:clipToPadding="false"
+                tools:listitem="@layout/item_lyric_line" />
+
+            <!-- No lyrics placeholder -->
+            <TextView
+                android:id="@+id/tvNoLyrics"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:text="No lyrics available"
+                android:textColor="#33FFFFFF"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
+        </FrameLayout>
+
+        <!-- Media transport controls -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:paddingTop="8dp"
+            android:paddingBottom="4dp">
+            <ImageButton
+                android:id="@+id/btnPrevious"
+                android:layout_width="56dp"
+                android:layout_height="56dp"
+                android:src="@android:drawable/ic_media_previous"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:tint="#CCFFFFFF"
+                android:contentDescription="Previous" />
+            <ImageButton
+                android:id="@+id/btnPlayPause"
+                android:layout_width="72dp"
+                android:layout_height="72dp"
+                android:layout_marginHorizontal="16dp"
+                android:src="@android:drawable/ic_media_pause"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:tint="#FFFFFFFF"
+                android:contentDescription="Play/Pause" />
+            <ImageButton
+                android:id="@+id/btnNext"
+                android:layout_width="56dp"
+                android:layout_height="56dp"
+                android:src="@android:drawable/ic_media_next"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:tint="#CCFFFFFF"
+                android:contentDescription="Next" />
+        </LinearLayout>
+        <!-- ── Control bar ── -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:paddingVertical="12dp"
+            android:paddingHorizontal="4dp">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnWordSync"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:layout_marginEnd="8dp"
+                android:text="Word Sync"
+                android:textSize="11sp"
+                android:alpha="0.4"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                app:strokeColor="#40FFFFFF" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnNextLyrics"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:layout_marginEnd="8dp"
+                android:text="Next Source"
+                android:textSize="11sp"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                app:strokeColor="#40FFFFFF" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnRefresh"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:text="↺"
+                android:textSize="16sp"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                app:strokeColor="#40FFFFFF" />
+
+        </LinearLayout>
+
+        <!-- ── Settings toggle row (offline / CJK / plain / translate) ── -->
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:scrollbars="none"
+            android:paddingBottom="8dp">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnOffline"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:layout_marginEnd="8dp"
+                    android:text="Offline"
+                    android:textSize="11sp"
+                    android:alpha="0.4"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    app:strokeColor="#40FFFFFF" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnCjk"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:layout_marginEnd="8dp"
+                    android:text="CJK"
+                    android:textSize="11sp"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    app:strokeColor="#40FFFFFF" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnPlain"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:layout_marginEnd="8dp"
+                    android:text="Plain"
+                    android:textSize="11sp"
+                    android:alpha="0.4"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    app:strokeColor="#40FFFFFF" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnTranslate"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:layout_marginEnd="8dp"
+                    android:text="Translate"
+                    android:textSize="11sp"
+                    android:alpha="0.4"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    app:strokeColor="#40FFFFFF" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnLang"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:layout_marginEnd="8dp"
+                    android:text="EN"
+                    android:textSize="11sp"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    app:strokeColor="#40FFFFFF" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnClearCache"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:layout_marginEnd="8dp"
+                    android:text="X"
+                    android:textSize="13sp"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    app:strokeColor="#40FFFFFF" />
+
+            </LinearLayout>
+        </HorizontalScrollView>
+
+        <!-- ── Offset row ── -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:paddingBottom="12dp">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnOffsetMinus"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:text="−"
+                android:textSize="16sp"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                app:strokeColor="#40FFFFFF" />
+
+            <TextView
+                android:id="@+id/tvOffset"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="12dp"
+                android:textColor="#99FFFFFF"
+                android:textSize="12sp"
+                android:fontFamily="monospace"
+                android:minWidth="56dp"
+                android:gravity="center"
+                tools:text="0 ms" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnOffsetPlus"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:text="+"
+                android:textSize="16sp"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                app:strokeColor="#40FFFFFF" />
+
+        </LinearLayout>
+
+        <!-- Debug log (collapsed by default, shown when tapping server info) -->
+        <TextView
+            android:id="@+id/tvDebugLog"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="#40FFFFFF"
+            android:textSize="9sp"
+            android:fontFamily="monospace"
+            android:maxLines="6"
+            android:paddingBottom="8dp"
+            android:visibility="gone"
+            tools:text="[12:34:56] Fetching lyrics..." />
+
+    </LinearLayout>
+
+    <!-- Server info card (shown/hidden on tap) -->
+    <androidx.cardview.widget.CardView
+        android:id="@+id/cardServerInfo"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="20dp"
+        android:visibility="gone"
+        app:cardBackgroundColor="#E6000000"
+        app:cardCornerRadius="12dp"
+        app:cardElevation="8dp"
+        app:layout_constraintTop_toBottomOf="@+id/llTopBar"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <TextView
+                android:id="@+id/tvMediaServer"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="#CCFFFFFF"
+                android:textSize="12sp"
+                android:fontFamily="monospace"
+                android:paddingBottom="4dp"
+                tools:text="Media WS: ws://192.168.1.100:8080" />
+
+            <TextView
+                android:id="@+id/tvLyricsServer"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="#CCFFFFFF"
+                android:textSize="12sp"
+                android:fontFamily="monospace"
+                android:paddingBottom="4dp"
+                tools:text="Lyrics WS: ws://192.168.1.100:6555" />
+
+            <TextView
+                android:id="@+id/tvClientCount"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="#80FFFFFF"
+                android:textSize="11sp"
+                tools:text="Clients: 0 media, 0 lyrics" />
+
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

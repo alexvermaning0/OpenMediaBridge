@@ -1,0 +1,72 @@
+name: Build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Publish Windows build
+        run: dotnet publish Windows/OpenMediaBridge.Windows.csproj -c Release -r win-x64 --self-contained -o publish/windows
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenMediaBridge-Windows
+          path: publish/windows
+
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Publish Linux build
+        run: dotnet publish Linux/OpenMediaBridge.Linux.csproj -c Release -r linux-x64 --self-contained -o publish/linux
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenMediaBridge-Linux
+          path: publish/linux
+
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+        working-directory: Android
+
+      - name: Build debug APK
+        run: ./gradlew assembleDebug --no-daemon
+        working-directory: Android
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenMediaBridge-Android
+          path: Android/app/build/outputs/apk/debug/*.apk

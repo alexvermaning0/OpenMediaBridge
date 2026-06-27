@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:padding="32dp"
+    android:background="#0a0a0a">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="OpenMediaBridge"
+        android:textColor="#FFFFFFFF"
+        android:textSize="28sp"
+        android:textStyle="bold"
+        android:letterSpacing="-0.03"
+        android:layout_marginBottom="8dp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Android Edition"
+        android:textColor="#60FFFFFF"
+        android:textSize="14sp"
+        android:layout_marginBottom="48dp" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="To detect what's playing on your device, OpenMediaBridge needs Notification Access.\n\nThis lets the app read media session information from Spotify, YouTube Music, and other players — the same data shown in your notification shade."
+        android:textColor="#CCFFFFFF"
+        android:textSize="14sp"
+        android:lineSpacingMultiplier="1.5"
+        android:layout_marginBottom="40dp" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnGrantAccess"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:text="Open Notification Access Settings"
+        android:textSize="14sp"
+        android:layout_marginBottom="16dp" />
+
+    <TextView
+        android:id="@+id/tvStatus"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text=""
+        android:textSize="13sp"
+        android:gravity="center"
+        android:layout_marginBottom="24dp" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnContinue"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:text="Continue →"
+        android:textSize="14sp"
+        android:enabled="false"
+        style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+
+</LinearLayout>

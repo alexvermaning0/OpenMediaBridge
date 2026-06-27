@@ -405,3 +405,15 @@ config.json
 cache/
 db.sqlite3
 *.lrc
+
+# Android (Gradle/Android Studio)
+Android/local.properties
+Android/.gradle/
+Android/.idea/
+Android/app/build/
+Android/build/
+Android/*.iml
+Android/app/*.iml
+Android/.cxx/
+Android/captures/
+Android/.externalNativeBuild/

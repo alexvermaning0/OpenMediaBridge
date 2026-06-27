@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingVertical="4dp">
+
+    <TextView
+        android:id="@+id/tv_lyric"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textColor="#FFFFFFFF"
+        android:textSize="22sp"
+        android:textStyle="bold"
+        android:lineSpacingMultiplier="1.25"
+        android:letterSpacing="-0.03"
+        android:paddingVertical="4dp"
+        android:pivotX="0"
+        tools:text="Never gonna give you up" />
+
+</LinearLayout>
