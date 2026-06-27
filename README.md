@@ -10,6 +10,7 @@ Runs on **Windows** (SMTC), **Linux** (MPRIS/playerctl), and **Android** (standa
 - Real-time media info (title, artist, album, cover art, playback state)
 - Synchronized lyrics from multiple sources (LRCLib, NetEase, local database)
 - Word-by-word sync mode for karaoke-style display
+- Live lyrics translation via any LibreTranslate-compatible API
 - Public album cover art URLs (iTunes/Deezer APIs)
 - Optional Discord status integration
 - Dual WebSocket architecture for flexible integration
@@ -47,7 +48,11 @@ Configuration is stored in `config.json`:
   "plain_lyrics_fallback": false,
   "discord_token": "",
   "discord_emoji": "🎶",
-  "discord_show_prefix": true
+  "discord_show_prefix": true,
+  "translation_enabled": false,
+  "translation_target_lang": "en",
+  "translation_libretranslate_url": "https://translate.minekingshosting.nl",
+  "translation_api_key": ""
 }
 ```
 
@@ -65,6 +70,10 @@ Configuration is stored in `config.json`:
 | `discord_token` | Discord user token for status sync (leave empty to disable) |
 | `discord_emoji` | Emoji shown in Discord status |
 | `discord_show_prefix` | Add prefix to Discord status text |
+| `translation_enabled` | Translate lyrics to `translation_target_lang` on startup |
+| `translation_target_lang` | Target language code (e.g. `en`, `nl`, `ja`) |
+| `translation_libretranslate_url` | LibreTranslate-compatible API endpoint |
+| `translation_api_key` | API key for the LibreTranslate instance, if required |
 
 ---
 
@@ -107,6 +116,8 @@ All messages use a simple `key:value` format. Each message is sent separately (n
 | `lyricsrc:<source>` | Lyrics source | `lyricsrc:lrclib` |
 | `wordsync:<bool>` | Word sync mode enabled | `wordsync:false` |
 | `offset:<ms>` | Current offset in ms | `offset:-50` |
+| `translate:<bool>` | Translation enabled | `translate:true` |
+| `translatelang:<code>` | Translation target language | `translatelang:en` |
 
 ### Commands (Client → Server)
 
@@ -129,6 +140,8 @@ All messages use a simple `key:value` format. Each message is sent separately (n
 | `toggle:offline` | `o` | Toggle offline mode |
 | `toggle:cjk` | `c` | Toggle CJK lyrics filter |
 | `toggle:plain` | `p` | Toggle plain lyrics fallback |
+| `toggle:translation` | `t` | Toggle lyrics translation |
+| `lang:<code>` | | Set translation target language (e.g. `lang:nl`) |
 | `nextlyrics` | `n` | Cycle to next lyrics source |
 | `refresh` | `r` | Re-fetch lyrics for current song |
 | `clearcache` | `x` | Clear cache for current song |
@@ -167,6 +180,8 @@ Dedicated connection for lyrics display. Receives high-frequency lyric updates.
 | `wordsync:<bool>` | Word sync mode | `wordsync:true` |
 | `lyricsrc:<source>` | Lyrics source | `lyricsrc:lrclib` |
 | `offset:<ms>` | Current offset | `offset:0` |
+| `translate:<bool>` | Translation enabled | `translate:true` |
+| `translatelang:<code>` | Translation target language | `translatelang:en` |
 
 ### Commands (Client → Server)
 
@@ -178,6 +193,8 @@ Dedicated connection for lyrics display. Receives high-frequency lyric updates.
 | `toggle:offline` | `o` | Toggle offline mode |
 | `toggle:cjk` | `c` | Toggle CJK filter |
 | `toggle:plain` | `p` | Toggle plain lyrics fallback |
+| `toggle:translation` | `t` | Toggle lyrics translation |
+| `lang:<code>` | | Set translation target language (e.g. `lang:nl`) |
 | `next` | `n` | Cycle to next lyrics source |
 | `refresh` | `r` | Re-fetch lyrics |
 | `clearcache` | `x` | Clear cache for current song |
@@ -202,6 +219,8 @@ Dedicated connection for lyrics display. Receives high-frequency lyric updates.
 | `O` | Toggle offline mode |
 | `C` | Toggle CJK filter |
 | `P` | Toggle plain lyrics fallback |
+| `T` | Toggle lyrics translation |
+| `L` | Open language picker (then `Esc` to close) |
 | `N` | Cycle to next lyrics source |
 | `R` | Re-fetch lyrics |
 | `X` | Clear cache for current song |
@@ -210,6 +229,18 @@ Dedicated connection for lyrics display. Receives high-frequency lyric updates.
 | `Shift++` | Increase offset by 500ms |
 | `Shift+-` | Decrease offset by 500ms |
 | `S` | Save offset to config |
+
+### Language Picker (`L`)
+
+| Key | Language | Key | Language |
+|-----|----------|-----|----------|
+| `E` | English | `6` | Japanese |
+| `1` | Arabic | `7` | Korean |
+| `2` | Chinese | `8` | Portuguese |
+| `D` | Dutch | `9` | Russian |
+| `3` | French | `0` | Spanish |
+| `4` | German | | |
+| `5` | Italian | | |
 
 ---
 
@@ -271,6 +302,16 @@ Optional feature to show current lyrics in Discord custom status.
 - Rate limited to 1 update per second
 - Status auto-expires after 5 minutes
 - Strips color tags from word sync mode
+
+---
+
+## Android App
+
+The Android app (`Android/`) is a standalone bridge, not a client — it runs its own embedded WebSocket server on-device, reading now-playing info via Android's notification listener / media session APIs instead of SMTC or MPRIS. Useful for offloading the bridge from a PC entirely (e.g. running OMB straight from your phone).
+
+It implements the same `key:value` protocol on the same default ports, including lyrics caching, offline mode, the CJK filter, plain-lyrics fallback, and lyrics translation with a target-language picker. The on-screen translate button mirrors the console's color cues: dim when off, yellow while fetching, green once translated text is ready.
+
+Build with Android Studio or `cd Android && ./gradlew assembleDebug`. Requires notification access permission to read media sessions.
 
 ---
 
