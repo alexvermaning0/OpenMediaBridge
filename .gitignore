@@ -406,6 +406,9 @@ cache/
 db.sqlite3
 *.lrc
 
+# Claude Code project instructions (local only, not uploaded)
+CLAUDE.md
+
 # Android (Gradle/Android Studio)
 Android/local.properties
 Android/.gradle/
