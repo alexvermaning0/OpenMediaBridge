@@ -103,6 +103,13 @@ catch (System.Net.Sockets.SocketException ex) when (ex.SocketErrorCode == System
     CoverServer.Stop();
     Environment.Exit(1);
 }
+catch (Exception ex)
+{
+    Console.WriteLine($"[ERROR] Could not start Media WebSocket Server: {ex.Message}");
+    Console.WriteLine($"[ERROR] Stack trace: {ex.StackTrace}");
+    CoverServer.Stop();
+    Environment.Exit(1);
+}
 
 var lyricsServer = new LyricsWSServer("127.0.0.1", configFile.LyricsPort > 0 ? configFile.LyricsPort : lyricsPort, lyricsService);
 try
@@ -113,6 +120,14 @@ try
 catch (System.Net.Sockets.SocketException ex) when (ex.SocketErrorCode == System.Net.Sockets.SocketError.AddressAlreadyInUse)
 {
     Console.WriteLine($"[ERROR] Could not start Lyrics WebSocket Server: Port {configFile.LyricsPort} is already in use.");
+    server.Stop();
+    CoverServer.Stop();
+    Environment.Exit(1);
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"[ERROR] Could not start Lyrics WebSocket Server: {ex.Message}");
+    Console.WriteLine($"[ERROR] Stack trace: {ex.StackTrace}");
     server.Stop();
     CoverServer.Stop();
     Environment.Exit(1);
