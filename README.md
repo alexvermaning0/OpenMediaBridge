@@ -3,7 +3,7 @@
 
 Bridges media playback information from your device's media session to WebSocket clients. Designed for integration with Resonite VR and other applications.
 
-Runs on **Windows** (SMTC), **Linux** (MPRIS/playerctl), and **Android** (standalone, runs its own bridge server on-device). See the `Windows/`, `Linux/`, and `Android/` folders, with shared logic in `Core/`.
+Runs on **Windows** (SMTC), **Linux** (MPRIS/playerctl), **macOS** (AppleScript), and **Android** (standalone). See the `Windows/`, `Linux/`, `MacOS/`, and `Android/` folders, with shared logic in `Core/`.
 
 ## Features
 

@@ -27,7 +27,7 @@ jobs:
           name: OpenMediaBridge-Windows
           path: publish/windows
 
-  linux:
+   linux:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -45,6 +45,34 @@ jobs:
         with:
           name: OpenMediaBridge-Linux
           path: publish/linux
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Publish macOS x64 build
+        run: dotnet publish MacOS/OpenMediaBridge.MacOS.csproj -c Release -r osx-x64 --self-contained -o publish/macos-x64
+
+      - name: Publish macOS ARM64 build
+        run: dotnet publish MacOS/OpenMediaBridge.MacOS.csproj -c Release -r osx-arm64 --self-contained -o publish/macos-arm64
+
+      - name: Upload x64 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenMediaBridge-macOS-x64
+          path: publish/macos-x64
+
+      - name: Upload ARM64 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenMediaBridge-macOS-ARM64
+          path: publish/macos-arm64
 
   android:
     runs-on: ubuntu-latest

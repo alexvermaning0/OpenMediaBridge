@@ -420,3 +420,9 @@ Android/app/*.iml
 Android/.cxx/
 Android/captures/
 Android/.externalNativeBuild/
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
