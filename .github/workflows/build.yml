@@ -21,11 +21,11 @@ jobs:
       - name: Publish Windows build
         run: dotnet publish Windows/OpenMediaBridge.Windows.csproj -c Release -r win-x64 --self-contained -o publish/windows
 
-       - name: Upload artifact
-         uses: actions/upload-artifact@v4
-         with:
-           name: OpenMediaBridge-Windows
-           path: publish/windows
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenMediaBridge-Windows
+          path: publish/windows
 
   linux:
     runs-on: ubuntu-latest
