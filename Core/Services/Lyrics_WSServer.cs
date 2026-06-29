@@ -1,4 +1,5 @@
 using NetCoreServer;
+using System;
 
 namespace OpenMediaBridge.Services
 {
@@ -15,6 +16,23 @@ namespace OpenMediaBridge.Services
         protected override TcpSession CreateSession()
         {
             return new LyricsWSSession(this, LyricsService);
+        }
+
+        public new bool Start()
+        {
+            try
+            {
+                Console.WriteLine($"[DEBUG] LyricsWSServer attempting to bind to {Address}:{Port}");
+                bool result = base.Start();
+                Console.WriteLine($"[DEBUG] LyricsWSServer.Start() returned: {result}");
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[DEBUG] LyricsWSServer.Start() exception: {ex.Message}");
+                Console.WriteLine($"[DEBUG] Stack trace: {ex.StackTrace}");
+                throw;
+            }
         }
     }
 }

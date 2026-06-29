@@ -11,10 +11,25 @@ namespace OpenMediaBridge
         public ResoniteWSServer(string address, int port) : base(address, port) { }
         public Config Config { get; set; }
 
-        // Set by each platform's Program.cs so sessions can construct the right
-        // IMediaService implementation (SMTC on Windows, MPRIS on Linux, ...).
         public Func<ResoniteWSSession, ResoniteWSServer, IMediaService> MediaServiceFactory { get; set; }
 
         protected override TcpSession CreateSession() { return new ResoniteWSSession(this); }
+
+        public new bool Start()
+        {
+            try
+            {
+                Console.WriteLine($"[DEBUG] ResoniteWSServer attempting to bind to {Address}:{Port}");
+                bool result = base.Start();
+                Console.WriteLine($"[DEBUG] ResoniteWSServer.Start() returned: {result}");
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[DEBUG] ResoniteWSServer.Start() exception: {ex.Message}");
+                Console.WriteLine($"[DEBUG] Stack trace: {ex.StackTrace}");
+                throw;
+            }
+        }
     }
 }

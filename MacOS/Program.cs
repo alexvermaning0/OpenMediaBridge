@@ -74,7 +74,7 @@ if (discordService.IsEnabled)
     Log("[Discord] Status sync enabled");
 }
 
-var server = new ResoniteWSServer("127.0.0.1", configFile.Port)
+var server = new ResoniteWSServer("0.0.0.0", configFile.Port)
 {
     Config = configFile,
     MediaServiceFactory = (session, srv) => new MacOSMediaService(session, srv)
@@ -119,7 +119,7 @@ catch (Exception ex)
     Environment.Exit(1);
 }
 
-var lyricsServer = new LyricsWSServer("127.0.0.1", configFile.LyricsPort > 0 ? configFile.LyricsPort : lyricsPort, lyricsService);
+var lyricsServer = new LyricsWSServer("0.0.0.0", configFile.LyricsPort > 0 ? configFile.LyricsPort : lyricsPort, lyricsService);
 try
 {
     lyricsServer.Start();
