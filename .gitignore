@@ -405,6 +405,7 @@ config.json
 cache/
 db.sqlite3
 *.lrc
+startup.log
 
 # Claude Code project instructions (local only, not uploaded)
 CLAUDE.md
