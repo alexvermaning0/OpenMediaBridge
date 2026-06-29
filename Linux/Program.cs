@@ -7,7 +7,15 @@ int port = 8080;
 int lyricsPort = 6555;
 int coverPort = 8081;
 
-Console.WriteLine("Starting OpenMediaBridge...");
+var logFile = "startup.log";
+void Log(string message)
+{
+    Console.WriteLine(message);
+    try { File.AppendAllText(logFile, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} {message}\n"); }
+    catch { }
+}
+
+Log("Starting OpenMediaBridge...");
 Console.OutputEncoding = System.Text.Encoding.UTF8;
 
 // If OPENMEDIABRIDGE_DATA_DIR is set (e.g. by the AUR wrapper), use that.
@@ -23,7 +31,7 @@ Directory.CreateDirectory(appDir);
 
 if (Environment.OSVersion.Platform != PlatformID.Unix)
 {
-    Console.WriteLine("[WARNING] This build is the Linux/MPRIS2 port. Run on Linux with a D-Bus session for full functionality.");
+    Log("[WARNING] This build is the Linux/MPRIS2 port. Run on Linux with a D-Bus session for full functionality.");
 }
 
 if (!File.Exists(configPath))
@@ -49,33 +57,30 @@ if (!File.Exists(configPath))
     JsonSerializerOptions options = new JsonSerializerOptions { WriteIndented = true };
     string serializedConfig = JsonSerializer.Serialize(config, options);
 
-    Console.WriteLine($"Config not found - writing new config to {configPath}\n{serializedConfig}");
+    Log($"Config not found - writing new config to {configPath}\n{serializedConfig}");
     File.WriteAllText(configPath, serializedConfig);
 }
 
 Config configFile = JsonSerializer.Deserialize<Config>(File.ReadAllText(configPath));
 
-// Initialize local database if available
 LocalDatabaseFetcher.Initialize(configFile.LrclibDatabasePath);
 
 if (configFile.OfflineMode)
 {
-    Console.WriteLine("[INFO] Offline mode enabled - API calls disabled");
+    Log("[INFO] Offline mode enabled - API calls disabled");
     if (!LocalDatabaseFetcher.IsAvailable())
     {
-        Console.WriteLine("[WARNING] Offline mode enabled but local database not found!");
-        Console.WriteLine($"[WARNING] Place database file at: {configFile.LrclibDatabasePath}");
+        Log("[WARNING] Offline mode enabled but local database not found!");
+        Log($"[WARNING] Place database file at: {configFile.LrclibDatabasePath}");
     }
 }
 
-// Start Cover Server
 CoverServer.Start(configFile.CoverPort > 0 ? configFile.CoverPort : coverPort);
 
-// Initialize Discord Status Service (optional - only if token is set)
 var discordService = new DiscordStatusService(configFile);
 if (discordService.IsEnabled)
 {
-    Console.WriteLine("[Discord] Status sync enabled");
+    Log("[Discord] Status sync enabled");
 }
 
 // Initialize Resonite WebSocket Server
@@ -116,18 +121,18 @@ if (discordService.IsEnabled)
 try
 {
     server.Start();
-    Console.WriteLine($"Started Media WebSocket Server on port {configFile.Port}");
+    Log($"Started Media WebSocket Server on port {configFile.Port}");
 }
 catch (System.Net.Sockets.SocketException ex) when (ex.SocketErrorCode == System.Net.Sockets.SocketError.AddressAlreadyInUse)
 {
-    Console.WriteLine($"[ERROR] Could not start Media WebSocket Server: Port {configFile.Port} is already in use.");
+    Log($"[ERROR] Could not start Media WebSocket Server: Port {configFile.Port} is already in use.");
     CoverServer.Stop();
     Environment.Exit(1);
 }
 catch (Exception ex)
 {
-    Console.WriteLine($"[ERROR] Could not start Media WebSocket Server: {ex.Message}");
-    Console.WriteLine($"[ERROR] Stack trace: {ex.StackTrace}");
+    Log($"[ERROR] Could not start Media WebSocket Server: {ex.Message}");
+    Log($"[ERROR] Stack trace: {ex.StackTrace}");
     CoverServer.Stop();
     Environment.Exit(1);
 }
@@ -137,25 +142,25 @@ var lyricsServer = new LyricsWSServer("127.0.0.1", configFile.LyricsPort > 0 ? c
 try
 {
     lyricsServer.Start();
-    Console.WriteLine($"Started Lyrics WebSocket Server on port {(configFile.LyricsPort > 0 ? configFile.LyricsPort : lyricsPort)}");
+    Log($"Started Lyrics WebSocket Server on port {(configFile.LyricsPort > 0 ? configFile.LyricsPort : lyricsPort)}");
 }
 catch (System.Net.Sockets.SocketException ex) when (ex.SocketErrorCode == System.Net.Sockets.SocketError.AddressAlreadyInUse)
 {
-    Console.WriteLine($"[ERROR] Could not start Lyrics WebSocket Server: Port {configFile.LyricsPort} is already in use.");
+    Log($"[ERROR] Could not start Lyrics WebSocket Server: Port {configFile.LyricsPort} is already in use.");
     server.Stop();
     CoverServer.Stop();
     Environment.Exit(1);
 }
 catch (Exception ex)
 {
-    Console.WriteLine($"[ERROR] Could not start Lyrics WebSocket Server: {ex.Message}");
-    Console.WriteLine($"[ERROR] Stack trace: {ex.StackTrace}");
+    Log($"[ERROR] Could not start Lyrics WebSocket Server: {ex.Message}");
+    Log($"[ERROR] Stack trace: {ex.StackTrace}");
     server.Stop();
     CoverServer.Stop();
     Environment.Exit(1);
 }
 
-Console.WriteLine("Press Q or Escape to stop...");
+Log("OpenMediaBridge started successfully. Press Q or Escape to stop...");
 Console.WriteLine();
 
 // Set up quit handler
