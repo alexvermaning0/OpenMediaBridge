@@ -69,6 +69,11 @@ namespace OpenMediaBridge
             ResoniteWSServer.ConnectedCount++;
             Console.WriteLine($"[WebSocket] Resonite clients connected: {ResoniteWSServer.ConnectedCount}");
 
+            // Start this session's own MPRIS poll loop so it actually feeds
+            // media metadata to this client. Without this the per-session
+            // service never polls and only pos:0 is ever emitted on 8080.
+            WMService?.Start();
+
             // Send initial state on connect
             SendInitialState();
 

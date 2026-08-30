@@ -39,6 +39,10 @@ namespace OpenMediaBridge.Services
         MediaPlaybackInfo GetPlaybackInfo();
         MediaTimelineInfo GetTimelineInfo();
         Task TryMediaControl(MediaControlType type);
+        // Begin producing media updates for this service's WSSession. Platforms
+        // that poll (Linux/macOS) start their loop here; event-driven platforms
+        // (Windows) initialize in their constructor and may no-op this.
+        void Start();
         void Dispose();
     }
 }

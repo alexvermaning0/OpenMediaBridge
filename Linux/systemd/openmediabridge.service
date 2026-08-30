@@ -1,0 +1,30 @@
+# Run OpenMediaBridge for the whole desktop session.
+#
+#   install -Dm644 openmediabridge.service ~/.config/systemd/user/openmediabridge.service
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now openmediabridge.service
+#
+# Assumes the AUR package (binary at /usr/bin/openmediabridge). For a
+# downloaded build, point ExecStart at the extracted OpenMediaBridge binary.
+
+[Unit]
+Description=OpenMediaBridge media and synced-lyrics WebSocket bridge
+Documentation=https://github.com/alexvermaning0/OpenMediaBridge
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/openmediabridge
+# Without this the bridge keeps its config next to the binary, i.e. /usr/bin.
+Environment=OPENMEDIABRIDGE_DATA_DIR=%h/.config/openmediabridge
+Restart=always
+RestartSec=5
+# It paints a full-screen TUI; with no terminal attached that is only escape
+# codes, so keep stdout out of the journal. Errors and warnings are written to
+# stderr (see Log() in Program.cs), so they still land in the journal.
+StandardOutput=null
+StandardError=journal
+
+[Install]
+WantedBy=graphical-session.target

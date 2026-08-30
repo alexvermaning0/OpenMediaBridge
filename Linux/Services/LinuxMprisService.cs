@@ -5,6 +5,7 @@ namespace OpenMediaBridge.Services
     public class LinuxMprisService : IMediaService, IDisposable
     {
         private readonly CancellationTokenSource _cts = new();
+        private bool _started;
         private string _lastProcessedSong = "";
         private bool _lastIsPlaying = false;
         private readonly object _updateLock = new();
@@ -39,6 +40,11 @@ namespace OpenMediaBridge.Services
 
         public void Start()
         {
+            // A single instance is shared across all sessions (see Program.cs),
+            // and every connect calls Start() — poll only once.
+            if (_started) return;
+            _started = true;
+
             if (!EnsurePlayerctl())
             {
                 Log("[MPRIS] Media controls unavailable — install playerctl and restart.");
@@ -182,7 +188,7 @@ namespace OpenMediaBridge.Services
                 {
                     CurrentPlayerName = "";
                     CurrentMediaProperties = null;
-                    WSSession.SendMediaUpdate();
+                    Server.ForEachSession(s => s.SendMediaUpdate());
                 }
                 return;
             }
@@ -257,11 +263,18 @@ namespace OpenMediaBridge.Services
             if (songChanged)
             {
                 await CoverServer.UpdateCoverAsync(newMedia);
-                WSSession.SendMediaUpdate();
+                Server.ForEachSession(s =>
+                {
+                    s.SendMediaUpdate();
+                    // Also push play/shuffle/repeat so a client that just connected
+                    // gets full playback state on the first metadata push, not only
+                    // after the next toggle.
+                    s.SendPlaybackUpdate();
+                });
             }
             else if (playbackChanged)
             {
-                WSSession.SendPlaybackUpdate();
+                Server.ForEachSession(s => s.SendPlaybackUpdate());
             }
         }
 

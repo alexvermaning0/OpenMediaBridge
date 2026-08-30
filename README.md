@@ -22,6 +22,25 @@ Runs on **Windows** (SMTC), **Linux** (MPRIS/playerctl), **macOS** (AppleScript)
 > [!TIP]
 > **Want a nice lyrics UI?** Download `OBS Templates.zip` from the latest release and open `full.html` in any web browser. You get a full Apple Music-style lyrics viewer with album art, scrolling lyrics, and word sync — no extra software needed.
 
+## Omarchy Bar Widget (Optional)
+
+> [!TIP]
+> **On Omarchy/Hyprland?** `Omarchy/openmediabridge.nowplaying/` is a Quickshell
+> plugin that puts the live lyric line in the status bar, with a popup for the
+> track, cover art, transport, and the offset/word-sync/translation controls.
+> Install it with `Omarchy/openmediabridge.nowplaying/install.sh` — see its
+> [README](Omarchy/openmediabridge.nowplaying/README.md).
+
+To keep the bridge itself running, `Linux/systemd/openmediabridge.service` is a
+user unit that starts it with the desktop session and restarts it if it exits:
+
+```bash
+install -Dm644 Linux/systemd/openmediabridge.service ~/.config/systemd/user/openmediabridge.service
+systemctl --user daemon-reload
+systemctl --user enable --now openmediabridge.service
+```
+
+
 ---
 
 ## Ports

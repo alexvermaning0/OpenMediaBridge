@@ -10,7 +10,12 @@ int coverPort = 8081;
 var logFile = "startup.log";
 void Log(string message)
 {
-    Console.WriteLine(message);
+    // Errors/warnings go to stderr so they survive under systemd, where stdout
+    // is discarded (it is only TUI escape codes) but stderr is sent to journal.
+    if (message.Contains("[ERROR]") || message.Contains("[WARNING]"))
+        Console.Error.WriteLine(message);
+    else
+        Console.WriteLine(message);
     try { File.AppendAllText(logFile, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} {message}\n"); }
     catch { }
 }
@@ -86,14 +91,17 @@ if (discordService.IsEnabled)
 // Initialize Resonite WebSocket Server
 var server = new ResoniteWSServer("127.0.0.1", configFile.Port)
 {
-    Config = configFile,
-    // Each connected client gets its own session-bound media service via this factory.
-    MediaServiceFactory = (session, srv) => new LinuxMprisService(session, srv)
+    Config = configFile
 };
 
-// Create shared MPRIS media service instance
+// Create the single MPRIS media service instance. MPRIS state is process-global,
+// so one poll loop serves every client; it fans updates out to all live sessions.
 var dummySession = new ResoniteWSSession(server);
 var wmService = new LinuxMprisService(dummySession, server);
+
+// Every connected client shares this one service rather than spawning its own
+// playerctl poll loop.
+server.MediaServiceFactory = (session, srv) => wmService;
 
 // Create Lyrics Service
 var lyricsService = new LyricsService(wmService);

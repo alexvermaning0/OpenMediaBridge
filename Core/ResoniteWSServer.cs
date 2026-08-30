@@ -15,6 +15,16 @@ namespace OpenMediaBridge
 
         protected override TcpSession CreateSession() { return new ResoniteWSSession(this); }
 
+        // Fan a per-session action out to every live client. The shared media
+        // service uses this to push updates from its single poll loop instead
+        // of one poll loop per connection.
+        public void ForEachSession(Action<ResoniteWSSession> action)
+        {
+            foreach (var session in Sessions.Values)
+                if (session is ResoniteWSSession resonite)
+                    action(resonite);
+        }
+
         public new bool Start()
         {
             try

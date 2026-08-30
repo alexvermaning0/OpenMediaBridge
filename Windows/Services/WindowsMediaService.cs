@@ -21,6 +21,10 @@ namespace OpenMediaBridge.Services
         private string _lastProcessedSong = "";
         private readonly object _updateLock = new object();
 
+        // Windows initializes event subscriptions in the constructor, so there is
+        // nothing to start here. Present to satisfy IMediaService.
+        public void Start() { }
+
         public WindowsMediaService(ResoniteWSSession session, ResoniteWSServer server)
         {
             WSSession = session;
