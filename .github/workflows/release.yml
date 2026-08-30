@@ -1,26 +1,29 @@
 name: Release & Publish to AUR
 
-# Cut a release and update BOTH AUR packages (openmediabridge and
+# Build the release assets and update BOTH AUR packages (openmediabridge and
 # openmediabridge-bin) in one shot.
 #
-# Trigger by pushing a version tag that matches the pkgver style (e.g. 1.2):
-#   git tag 2.1 && git push origin 2.1
-# or run it manually from the Actions tab (workflow_dispatch) with a version.
-# Both packages are published at the same version as the tag.
+# Normal flow: write the release notes in GitHub's Releases UI, tag it with a
+# pkgver-style version (e.g. 2.1), and hit Publish. Publishing triggers this
+# workflow, which builds the binary, attaches the zip to *your* release
+# (leaving your notes untouched), and pushes both packages to the AUR at that
+# version. You can save the release as a draft and iterate on the text first —
+# nothing runs until you publish.
+#
+# Fallback: run it manually from the Actions tab (workflow_dispatch) with a
+# version; that path creates the release for you with auto-generated notes.
 #
 # Required repository secret:
 #   AUR_SSH_PRIVATE_KEY  — a private SSH key whose public half is registered on
 #                          your AUR account (My Account -> SSH Public Key).
 
 on:
-  push:
-    tags:
-      - '[0-9]+.[0-9]+'
-      - '[0-9]+.[0-9]+.[0-9]+'
+  release:
+    types: [published]
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to release (e.g. 2.1). Creates the tag and release.'
+        description: 'Version to release (e.g. 2.1). Creates the tag and release with auto-generated notes.'
         required: true
 
 permissions:
@@ -35,10 +38,10 @@ jobs:
       - name: Resolve version
         id: ver
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            VERSION="${{ inputs.version }}"
+          if [ "${{ github.event_name }}" = "release" ]; then
+            VERSION="${{ github.event.release.tag_name }}"
           else
-            VERSION="${GITHUB_REF_NAME}"
+            VERSION="${{ inputs.version }}"
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Releasing version: $VERSION"
@@ -60,13 +63,24 @@ jobs:
           cd "$GITHUB_WORKSPACE"
           ls -la OpenMediaBridge.Linux.zip
 
-      - name: Create GitHub release
-        # Creates the tag (on workflow_dispatch) and attaches the -bin zip. The
-        # tag must exist before we can checksum the source tarball below.
+      - name: Attach zip to the published release
+        # Release event: the release and tag already exist, so just upload the
+        # asset. Passing no name/body leaves the notes you wrote untouched.
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.ver.outputs.version }}
+          files: OpenMediaBridge.Linux.zip
+
+      - name: Create release with auto notes (manual dispatch)
+        # Fallback path: no release exists yet, so create one (and the tag) with
+        # a generated changelog and attach the asset.
+        if: github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.ver.outputs.version }}
           name: ${{ steps.ver.outputs.version }}
+          generate_release_notes: true
           files: OpenMediaBridge.Linux.zip
 
       - name: Compute checksums
