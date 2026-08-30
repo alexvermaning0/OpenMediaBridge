@@ -1,0 +1,143 @@
+name: Release & Publish to AUR
+
+# Cut a release and update BOTH AUR packages (openmediabridge and
+# openmediabridge-bin) in one shot.
+#
+# Trigger by pushing a version tag that matches the pkgver style (e.g. 1.2):
+#   git tag 2.1 && git push origin 2.1
+# or run it manually from the Actions tab (workflow_dispatch) with a version.
+# Both packages are published at the same version as the tag.
+#
+# Required repository secret:
+#   AUR_SSH_PRIVATE_KEY  — a private SSH key whose public half is registered on
+#                          your AUR account (My Account -> SSH Public Key).
+
+on:
+  push:
+    tags:
+      - '[0-9]+.[0-9]+'
+      - '[0-9]+.[0-9]+.[0-9]+'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g. 2.1). Creates the tag and release.'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release-aur:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: ver
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION="${GITHUB_REF_NAME}"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Releasing version: $VERSION"
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Publish Linux build
+        run: dotnet publish Linux/OpenMediaBridge.Linux.csproj -c Release -r linux-x64 --self-contained -o publish/linux
+
+      - name: Package release zip
+        # Ship only what the -bin PKGBUILD installs: the binary and the native
+        # SQLite library. Debug symbols (*.pdb) are deliberately excluded.
+        run: |
+          cd publish/linux
+          zip -r "$GITHUB_WORKSPACE/OpenMediaBridge.Linux.zip" OpenMediaBridge libe_sqlite3.so
+          cd "$GITHUB_WORKSPACE"
+          ls -la OpenMediaBridge.Linux.zip
+
+      - name: Create GitHub release
+        # Creates the tag (on workflow_dispatch) and attaches the -bin zip. The
+        # tag must exist before we can checksum the source tarball below.
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.ver.outputs.version }}
+          name: ${{ steps.ver.outputs.version }}
+          files: OpenMediaBridge.Linux.zip
+
+      - name: Compute checksums
+        id: sums
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          ZIP_SHA=$(sha256sum OpenMediaBridge.Linux.zip | awk '{print $1}')
+          LIC_SHA=$(sha256sum LICENSE | awk '{print $1}')
+          # GitHub generates the source archive on demand; give it a few tries.
+          SRC_URL="https://github.com/${GITHUB_REPOSITORY}/archive/refs/tags/${VERSION}.tar.gz"
+          for i in 1 2 3 4 5 6; do
+            if curl -fsSL "$SRC_URL" -o src.tar.gz; then break; fi
+            echo "source archive not ready yet, retrying in 10s..."; sleep 10
+          done
+          SRC_SHA=$(sha256sum src.tar.gz | awk '{print $1}')
+          echo "zip_sha=$ZIP_SHA"  >> "$GITHUB_OUTPUT"
+          echo "lic_sha=$LIC_SHA"  >> "$GITHUB_OUTPUT"
+          echo "src_sha=$SRC_SHA"  >> "$GITHUB_OUTPUT"
+
+      - name: Update PKGBUILDs (version + checksums)
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+          ZIP_SHA: ${{ steps.sums.outputs.zip_sha }}
+          LIC_SHA: ${{ steps.sums.outputs.lic_sha }}
+          SRC_SHA: ${{ steps.sums.outputs.src_sha }}
+        run: |
+          python3 - <<'PY'
+          import os, re, pathlib
+
+          version = os.environ["VERSION"]
+
+          def update(path, sums):
+              p = pathlib.Path(path)
+              t = p.read_text()
+              t = re.sub(r"^pkgver=.*$", "pkgver=" + version, t, flags=re.M)
+              t = re.sub(r"^pkgrel=.*$", "pkgrel=1", t, flags=re.M)
+              t = re.sub(r"sha256sums=\([^)]*\)", sums, t)
+              p.write_text(t)
+              print(f"--- {path} ---\n{t}")
+
+          # openmediabridge-bin: release zip + LICENSE (fetched at the tag ref)
+          update(
+              "Linux/aur/openmediabridge-bin/PKGBUILD",
+              "sha256sums=('%s'\n            '%s')"
+              % (os.environ["ZIP_SHA"], os.environ["LIC_SHA"]),
+          )
+
+          # openmediabridge: source tarball
+          update(
+              "Linux/aur/openmediabridge/PKGBUILD",
+              "sha256sums=('%s')" % os.environ["SRC_SHA"],
+          )
+          PY
+
+      - name: Publish openmediabridge-bin to AUR
+        uses: KSXGitHub/github-actions-deploy-aur@v2.7.2
+        with:
+          pkgname: openmediabridge-bin
+          pkgbuild: ./Linux/aur/openmediabridge-bin/PKGBUILD
+          commit_username: alexvermaning0
+          commit_email: alex.boot@outlook.com
+          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          commit_message: "Update to ${{ steps.ver.outputs.version }}"
+
+      - name: Publish openmediabridge to AUR
+        uses: KSXGitHub/github-actions-deploy-aur@v2.7.2
+        with:
+          pkgname: openmediabridge
+          pkgbuild: ./Linux/aur/openmediabridge/PKGBUILD
+          commit_username: alexvermaning0
+          commit_email: alex.boot@outlook.com
+          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          commit_message: "Update to ${{ steps.ver.outputs.version }}"
