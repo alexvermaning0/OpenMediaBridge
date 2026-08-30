@@ -36,11 +36,11 @@ Item {
   property bool shuffle: false
   property string repeatMode: "none"
 
-  // 1.x announces playback state with `status:`; 2.0 never sends it. What both
-  // do is emit `pos:`/`prog:` once a second while a player is running and go
-  // completely silent while it is paused, so the message flow itself is a
-  // reliable state signal. Prefer an explicit `status:` when the bridge sends
-  // one, and fall back to the heartbeat when it does not.
+  // 1.x and 2.1+ announce playback state with `status:`; the broken 2.0 never
+  // sent it. As a fallback, all versions emit `pos:`/`prog:` while a player is
+  // running, so the message flow itself is a (rough) state signal. Prefer an
+  // explicit `status:` when the bridge sends one, and fall back to the
+  // heartbeat only when it does not.
   property bool explicitPlaying: false
   property bool sawExplicitStatus: false
   property bool tickPlaying: false
@@ -58,10 +58,10 @@ Item {
   property bool translating: false
   property string translateLang: ""
 
-  // OpenMediaBridge only pushes media info on change, and 2.0 answers
-  // `getstatus` with just the cover URL — connect mid-song and title/artist
-  // stay empty until the next track. A live lyric or a moving progress value
-  // is therefore just as good a signal that something is playing.
+  // 1.x and 2.1+ answer `getstatus` with the full state, so title/artist arrive
+  // on connect; the broken 2.0 replied with just the cover URL, leaving them
+  // empty until the next track. A live lyric or a moving progress value is
+  // therefore also treated as a signal that something is playing.
   readonly property bool hasTrack: title !== "" || artist !== "" || lyric !== "" || progress > 0
 
   function send(command) {

@@ -27,7 +27,14 @@ lyrics on `6555` — so it needs no changes to OpenMediaBridge itself.
 ## Requirements
 
 - Omarchy with the Quickshell-based shell (`omarchy-shell`)
-- `qt6-websockets` — `sudo pacman -S qt6-websockets`
+- The Qt6 WebSockets QML module (`QtWebSockets`). Package name varies by distro:
+  - Arch: `sudo pacman -S qt6-websockets`
+  - Debian/Ubuntu: `sudo apt install qml6-module-qtwebsockets`
+  - Fedora: `sudo dnf install qt6-qtwebsockets`
+  - openSUSE: `sudo zypper install qt6-websockets-imports`
+
+  `install.sh` probes for it and prints the right command for your distro if it
+  is missing.
 - OpenMediaBridge running (the Linux build in `../../Linux`)
 
 ## Keeping the bridge running
@@ -55,7 +62,14 @@ whether it is up.
 ```
 
 That symlinks the plugin into `~/.config/omarchy/plugins/`, rescans, and enables
-it. Use `./install.sh --copy` to copy it instead of linking. To do it by hand:
+it. Use `./install.sh --copy` to copy it instead of linking. If your plugins
+live somewhere else, point the installer at that folder:
+
+```bash
+OMARCHY_PLUGINS_DIR=/path/to/plugins ./install.sh
+```
+
+To do it by hand:
 
 ```bash
 ln -s "$PWD" ~/.config/omarchy/plugins/openmediabridge.nowplaying
@@ -140,23 +154,28 @@ Available calls:
 
 ## Version differences
 
-The widget is written against both 1.x and 2.0, which do not speak quite the
-same protocol:
+The widget speaks to 1.x, the broken 2.0, and the fixed 2.1+, which do not all
+send the same media data on port 8080:
 
-| | 1.x | 2.0 |
-|---|---|---|
-| `title:` / `artist:` / `album:` on port 8080 | yes | **never sent** |
-| `status:` playback state | yes | **never sent** |
-| `dur:` track length | yes | **never sent** |
-| `getstatus` resends full state | yes | only the cover URL |
-| `cover:`, `pos:`, and the whole lyrics socket | yes | yes |
+| | 1.x | 2.0 | 2.1+ |
+|---|---|---|---|
+| `title:` / `artist:` / `album:` on port 8080 | yes | **never sent** | yes |
+| `status:` playback state | yes | **never sent** | yes |
+| `dur:` track length | yes | **never sent** | yes |
+| `getstatus` resends full state | yes | only the cover URL | yes |
+| `cover:`, `pos:`, and the whole lyrics socket | yes | yes | yes |
 
-So on 2.0 the widget falls back: the bar shows the lyric line by itself, the
-popup says "Unknown track" over the cover art, track length is derived from
-`pos ÷ prog`, and play/pause state is inferred from the message heartbeat —
-both versions emit `pos:`/`prog:` once a second while a player runs and go
-silent while it is paused. Metadata reappears automatically if a version that
-sends it is running.
+On 1.x and 2.1+ the popup shows the full track, real length, and real play/pause
+state. On the broken 2.0 the widget falls back: the bar shows the lyric line by
+itself, the popup says "Unknown track" over the cover art, track length is
+derived from `pos ÷ prog`, and play/pause state is inferred from the message
+heartbeat. Metadata reappears automatically once a version that sends it runs.
+
+> **Updated the bridge but the popup still says "Unknown track"?** A package
+> update swaps the files but does not restart a running bridge, so the old
+> version keeps serving port 8080. Restart it — `systemctl --user restart
+> openmediabridge` if you run the service, otherwise quit and relaunch it — then
+> reopen the popup.
 
 ## How it fits together
 
@@ -169,7 +188,8 @@ sends it is running.
 ## Troubleshooting
 
 **The widget shows a warning icon.** The service did not load — almost always a
-missing `qt6-websockets`. Check with
+missing Qt6 WebSockets QML module (`QtWebSockets`; see Requirements for the
+package name on your distro). Check with
 `quickshell log -t 100 $(ls -t /run/user/$UID/quickshell/by-id/*/log.qslog | head -1) | grep openmediabridge`.
 
 **Nothing in the bar at all.** Confirm the plugin is enabled

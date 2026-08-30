@@ -39,7 +39,8 @@ BarWidget {
     : displayMode === "track" ? trackLabelOrLyric
     : (lyric !== "" ? lyric : trackLabel)
 
-  // 2.0 stopped sending `dur:`; position over progress recovers it.
+  // 2.1+ sends `dur:`; when it is missing (2.0, or before the first update)
+  // position over progress recovers the length.
   readonly property int displayDuration: !bridge ? 0
     : bridge.durationMs > 0 ? bridge.durationMs
     : bridge.progress > 0.02 && bridge.positionMs > 0 ? Math.round(bridge.positionMs / bridge.progress)
@@ -524,7 +525,7 @@ BarWidget {
         font.family: root.bar.fontFamily
         font.pixelSize: Style.font.bodySmall
         text: root.bridgeMissing
-          ? "The bridge service did not load.\nInstall its dependency with:\nsudo pacman -S qt6-websockets"
+          ? "The bridge service did not load.\nInstall the Qt6 WebSockets QML module\n(QtWebSockets) for your distro."
           : "Waiting for OpenMediaBridge on " + root.host + ":" + root.mediaPort + " …"
       }
     }
