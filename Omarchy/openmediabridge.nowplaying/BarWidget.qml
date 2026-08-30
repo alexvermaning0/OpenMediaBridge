@@ -197,8 +197,8 @@ BarWidget {
     onClicked: function (mouse) {
       if (!root.bridge) return
       if (mouse.button === Qt.MiddleButton) root.bridge.send("next")
-      else if (mouse.button === Qt.RightButton) root.popupOpen = !root.popupOpen
-      else root.playPause()
+      else if (mouse.button === Qt.RightButton) root.playPause()
+      else root.popupOpen = !root.popupOpen
     }
 
     onWheel: function (wheel) {

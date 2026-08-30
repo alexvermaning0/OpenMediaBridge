@@ -87,9 +87,9 @@ omarchy bar move openmediabridge.nowplaying --section right
 
 | Action | Result |
 |--------|--------|
-| Left click | Play / pause |
+| Left click | Popup with everything else |
 | Middle click | Next track |
-| Right click | Popup with everything else |
+| Right click | Play / pause |
 | Scroll | Previous / next track (or ±50 ms lyric offset, see `scrollAction`) |
 | Hover | Track and artist as a tooltip |
 
