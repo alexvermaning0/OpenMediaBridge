@@ -59,9 +59,9 @@ jobs:
         # SQLite library. Debug symbols (*.pdb) are deliberately excluded.
         run: |
           cd publish/linux
-          zip -r "$GITHUB_WORKSPACE/OpenMediaBridge.Linux.zip" OpenMediaBridge libe_sqlite3.so
+          zip -r "$GITHUB_WORKSPACE/OpenMediaBridge-Linux.zip" OpenMediaBridge libe_sqlite3.so
           cd "$GITHUB_WORKSPACE"
-          ls -la OpenMediaBridge.Linux.zip
+          ls -la OpenMediaBridge-Linux.zip
 
       - name: Attach zip to the published release
         # Release event: the release and tag already exist, so just upload the
@@ -70,7 +70,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.ver.outputs.version }}
-          files: OpenMediaBridge.Linux.zip
+          files: OpenMediaBridge-Linux.zip
 
       - name: Create release with auto notes (manual dispatch)
         # Fallback path: no release exists yet, so create one (and the tag) with
@@ -81,14 +81,14 @@ jobs:
           tag_name: ${{ steps.ver.outputs.version }}
           name: ${{ steps.ver.outputs.version }}
           generate_release_notes: true
-          files: OpenMediaBridge.Linux.zip
+          files: OpenMediaBridge-Linux.zip
 
       - name: Compute checksums
         id: sums
         env:
           VERSION: ${{ steps.ver.outputs.version }}
         run: |
-          ZIP_SHA=$(sha256sum OpenMediaBridge.Linux.zip | awk '{print $1}')
+          ZIP_SHA=$(sha256sum OpenMediaBridge-Linux.zip | awk '{print $1}')
           LIC_SHA=$(sha256sum LICENSE | awk '{print $1}')
           # GitHub generates the source archive on demand; give it a few tries.
           SRC_URL="https://github.com/${GITHUB_REPOSITORY}/archive/refs/tags/${VERSION}.tar.gz"
