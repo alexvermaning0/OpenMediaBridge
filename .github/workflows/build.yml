@@ -1,4 +1,4 @@
-name: Build
+name: Build & Release
 
 on:
   push:
@@ -6,6 +6,16 @@ on:
   pull_request:
     branches: [ main ]
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Set a version (e.g. 2.1) to also cut a release and update the AUR. Leave blank to only build.'
+        required: false
+        default: ''
+  release:
+    types: [published]
+
+permissions:
+  contents: write
 
 jobs:
   windows:
@@ -98,3 +108,145 @@ jobs:
         with:
           name: OpenMediaBridge-Android
           path: Android/app/build/outputs/apk/debug/*.apk
+
+  # Only runs when a GitHub release is published (or a manual dispatch supplies a
+  # version). Reuses the platform artifacts the build jobs above already produced:
+  # names them into the release-asset convention, attaches them, and updates both
+  # AUR packages. Normal builds on push/PR skip this job entirely.
+  #
+  # Normal flow: write the release notes in GitHub's Releases UI, tag it with a
+  # pkgver-style version (e.g. 2.1), and hit Publish. Your notes are never touched.
+  #
+  # Required repository secret:
+  #   AUR_SSH_PRIVATE_KEY  — private SSH key whose public half is on your AUR account.
+  release:
+    needs: [windows, linux, macos, android]
+    if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.version != '')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: ver
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            VERSION="${{ github.event.release.tag_name }}"
+          else
+            VERSION="${{ inputs.version }}"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Releasing version: $VERSION"
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Assemble named release assets
+        run: |
+          mkdir -p dist
+          # Windows / macOS: ship the full self-contained folder.
+          ( cd artifacts/OpenMediaBridge-Windows    && zip -r "$GITHUB_WORKSPACE/dist/OpenMediaBridge-Windows.zip" . )
+          ( cd artifacts/OpenMediaBridge-macOS-x64   && zip -r "$GITHUB_WORKSPACE/dist/OpenMediaBridge-macOS-x64.zip" . )
+          ( cd artifacts/OpenMediaBridge-macOS-ARM64 && zip -r "$GITHUB_WORKSPACE/dist/OpenMediaBridge-macOS-arm64.zip" . )
+          # Linux: only the two files the -bin package installs.
+          ( cd artifacts/OpenMediaBridge-Linux       && zip "$GITHUB_WORKSPACE/dist/OpenMediaBridge-Linux.zip" OpenMediaBridge libe_sqlite3.so )
+          # Android: the built APK(s).
+          zip -j "$GITHUB_WORKSPACE/dist/OpenMediaBridge-Android.zip" artifacts/OpenMediaBridge-Android/*.apk
+          # OBS overlay templates straight from the repo.
+          ( cd "OBS Templates" && zip -r "$GITHUB_WORKSPACE/dist/OBS.Templates.zip" . )
+          ls -la dist
+
+      - name: Attach assets to the published release
+        # Release event: the release/tag already exist; just upload. No name/body
+        # is passed, so the notes you wrote stay untouched. Same-named assets are
+        # replaced, so any you attached by hand get overwritten by these builds.
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.ver.outputs.version }}
+          files: dist/*.zip
+
+      - name: Create release with auto notes (manual dispatch)
+        # Fallback path: no release exists yet, so create one with a generated
+        # changelog and attach the assets.
+        if: github.event_name == 'workflow_dispatch'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.ver.outputs.version }}
+          name: ${{ steps.ver.outputs.version }}
+          generate_release_notes: true
+          files: dist/*.zip
+
+      - name: Compute checksums
+        id: sums
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          ZIP_SHA=$(sha256sum dist/OpenMediaBridge-Linux.zip | awk '{print $1}')
+          LIC_SHA=$(sha256sum LICENSE | awk '{print $1}')
+          # GitHub generates the source archive on demand; give it a few tries.
+          SRC_URL="https://github.com/${GITHUB_REPOSITORY}/archive/refs/tags/${VERSION}.tar.gz"
+          for i in 1 2 3 4 5 6; do
+            if curl -fsSL "$SRC_URL" -o src.tar.gz; then break; fi
+            echo "source archive not ready yet, retrying in 10s..."; sleep 10
+          done
+          SRC_SHA=$(sha256sum src.tar.gz | awk '{print $1}')
+          echo "zip_sha=$ZIP_SHA" >> "$GITHUB_OUTPUT"
+          echo "lic_sha=$LIC_SHA" >> "$GITHUB_OUTPUT"
+          echo "src_sha=$SRC_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Update PKGBUILDs (version + checksums)
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+          ZIP_SHA: ${{ steps.sums.outputs.zip_sha }}
+          LIC_SHA: ${{ steps.sums.outputs.lic_sha }}
+          SRC_SHA: ${{ steps.sums.outputs.src_sha }}
+        run: |
+          python3 - <<'PY'
+          import os, re, pathlib
+
+          version = os.environ["VERSION"]
+
+          def update(path, sums):
+              p = pathlib.Path(path)
+              t = p.read_text()
+              t = re.sub(r"^pkgver=.*$", "pkgver=" + version, t, flags=re.M)
+              t = re.sub(r"^pkgrel=.*$", "pkgrel=1", t, flags=re.M)
+              t = re.sub(r"sha256sums=\([^)]*\)", sums, t)
+              p.write_text(t)
+              print(f"--- {path} ---\n{t}")
+
+          # openmediabridge-bin: release zip + LICENSE (fetched at the tag ref)
+          update(
+              "Linux/aur/openmediabridge-bin/PKGBUILD",
+              "sha256sums=('%s'\n            '%s')"
+              % (os.environ["ZIP_SHA"], os.environ["LIC_SHA"]),
+          )
+
+          # openmediabridge: source tarball
+          update(
+              "Linux/aur/openmediabridge/PKGBUILD",
+              "sha256sums=('%s')" % os.environ["SRC_SHA"],
+          )
+          PY
+
+      - name: Publish openmediabridge-bin to AUR
+        uses: KSXGitHub/github-actions-deploy-aur@v2.7.2
+        with:
+          pkgname: openmediabridge-bin
+          pkgbuild: ./Linux/aur/openmediabridge-bin/PKGBUILD
+          commit_username: alexvermaning0
+          commit_email: alex.boot@outlook.com
+          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          commit_message: "Update to ${{ steps.ver.outputs.version }}"
+
+      - name: Publish openmediabridge to AUR
+        uses: KSXGitHub/github-actions-deploy-aur@v2.7.2
+        with:
+          pkgname: openmediabridge
+          pkgbuild: ./Linux/aur/openmediabridge/PKGBUILD
+          commit_username: alexvermaning0
+          commit_email: alex.boot@outlook.com
+          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          commit_message: "Update to ${{ steps.ver.outputs.version }}"
