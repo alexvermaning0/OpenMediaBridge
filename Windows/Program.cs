@@ -7,24 +7,54 @@ int port = 8080;
 int lyricsPort = 6555;
 int coverPort = 8081;
 
-var logFile = "startup.log";
-void Log(string message)
-{
-    Console.WriteLine(message);
-    try { File.AppendAllText(logFile, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} {message}\n"); }
-    catch { }
-}
-
-Log("Starting OpenMediaBridge...");
 Console.OutputEncoding = System.Text.Encoding.UTF8;
 
 if (Environment.OSVersion.Platform == PlatformID.Unix)
 {
-    Log("This build is the Windows/SMTC port. Use the Linux build on Linux instead.");
+    Console.Error.WriteLine("This build is the Windows/SMTC port. Use the Linux build on Linux instead.");
     Environment.Exit(1);
 }
 
-if (!File.Exists("config.json"))
+// config, cache, db and logs all live in one directory (see ResolveDataDir).
+string appDir = ResolveDataDir();
+Directory.CreateDirectory(appDir);
+OpenMediaBridge.Logging.Log.Init(appDir);
+
+// Everything logs through the one sink; keep the [ERROR]/[WARNING] convention
+// working by mapping it onto the logger's levels.
+void Log(string message)
+{
+    if (message.Contains("[ERROR]")) OpenMediaBridge.Logging.Log.Error(message);
+    else if (message.Contains("[WARNING]")) OpenMediaBridge.Logging.Log.Warning(message);
+    else OpenMediaBridge.Logging.Log.Info(message);
+}
+
+// Where the app keeps its files. Precedence:
+//   1. OPENMEDIABRIDGE_DATA_DIR when set,
+//   2. the folder next to the binary if it already holds a config.json — keeps
+//      existing and deliberately "portable" installs working (local files win),
+//   3. otherwise %APPDATA%\OpenMediaBridge.
+string ResolveDataDir()
+{
+    var env = Environment.GetEnvironmentVariable("OPENMEDIABRIDGE_DATA_DIR");
+    if (!string.IsNullOrWhiteSpace(env)) return env;
+
+    var localDir = AppContext.BaseDirectory;
+    if (File.Exists(Path.Combine(localDir, "config.json"))) return localDir;
+
+    return Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        "OpenMediaBridge");
+}
+
+Log("Starting OpenMediaBridge...");
+Log($"Data directory: {appDir}");
+
+string configPath = Path.Combine(appDir, "config.json");
+string cacheDir   = Path.Combine(appDir, "cache");
+string dbPath     = Path.Combine(appDir, "db.sqlite3");
+
+if (!File.Exists(configPath))
 {
     Config config = new Config
     {
@@ -34,10 +64,10 @@ if (!File.Exists("config.json"))
         CoverPort = coverPort,
         DisableLyricsFor = new List<string>(),
         OffsetMs = 0,
-        CacheFolder = "cache",
+        CacheFolder = cacheDir,
         FilterCjkLyrics = true,
         OfflineMode = false,
-        LrclibDatabasePath = "db.sqlite3",
+        LrclibDatabasePath = dbPath,
         PlainLyricsFallback = false,
         DiscordToken = "",
         DiscordEmoji = "🎶",
@@ -47,11 +77,11 @@ if (!File.Exists("config.json"))
     JsonSerializerOptions options = new JsonSerializerOptions { WriteIndented = true };
     string serializedConfig = JsonSerializer.Serialize(config, options);
 
-    Log($"Config not found - writing new config\n{serializedConfig}");
-    File.WriteAllText("config.json", serializedConfig);
+    Log($"Config not found - writing new config to {configPath}\n{serializedConfig}");
+    File.WriteAllText(configPath, serializedConfig);
 }
 
-Config configFile = JsonSerializer.Deserialize<Config>(File.ReadAllText("config.json"));
+Config configFile = JsonSerializer.Deserialize<Config>(File.ReadAllText(configPath));
 
 LocalDatabaseFetcher.Initialize(configFile.LrclibDatabasePath);
 
