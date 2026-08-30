@@ -22,7 +22,6 @@ namespace OpenMediaBridge.Services
         private string _currentSource = "None";
         private DateTime _lastLyricUpdateTime = DateTime.MinValue;
         private DateTime _lastBroadcastTime = DateTime.MinValue;
-        private readonly Queue<string> _debugLog = new();
 
         // position simulation
         private long _lastKnownPosition = 0;
@@ -540,6 +539,9 @@ namespace OpenMediaBridge.Services
                     Console.Clear();
                     Console.CursorVisible = false;
                     _consoleInitialized = true;
+                    // The TUI owns the screen now; stop echoing log lines to the
+                    // console (the debug pane is the live view from here on).
+                    OpenMediaBridge.Logging.Log.EchoToConsole = false;
                 }
 
                 Console.SetCursorPosition(0, 0);
@@ -575,9 +577,10 @@ namespace OpenMediaBridge.Services
                 WriteConsoleLine("📋 Debug Log:");
 
                 int logLine = 0;
-                foreach (var line in _debugLog.Reverse())
+                var recent = OpenMediaBridge.Logging.Log.Recent();
+                for (int i = recent.Count - 1; i >= 0 && logLine < 10; i--)
                 {
-                    WriteConsoleLine(" - " + line);
+                    WriteConsoleLine(" - " + recent[i]);
                     logLine++;
                 }
 
@@ -788,16 +791,11 @@ namespace OpenMediaBridge.Services
             return $"{(ms < 0 ? "-" : "")}{minutes}:{seconds:D2}";
         }
 
-        private void DebugLog(string message)
-        {
-            _debugLog.Enqueue($"[{DateTime.Now:HH:mm:ss}] {message}");
-            while (_debugLog.Count > 10)
-                _debugLog.Dequeue();
-        }
+        private void DebugLog(string message) => OpenMediaBridge.Logging.Log.Debug(message);
 
         // Lets platform-specific media services (e.g. LinuxMprisService) route their
-        // own log messages into the same debug log shown in the console TUI.
-        public void AddDebugLog(string message) => DebugLog(message);
+        // own log messages into the same shared log shown in the console TUI.
+        public void AddDebugLog(string message) => OpenMediaBridge.Logging.Log.Debug(message);
 
         // Public methods for WebSocket control
         public void EnableWordSync() => _wordSyncMode = true;

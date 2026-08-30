@@ -7,32 +7,48 @@ int port = 8080;
 int lyricsPort = 6555;
 int coverPort = 8081;
 
-var logFile = "startup.log";
+Console.OutputEncoding = System.Text.Encoding.UTF8;
+
+// config, cache, db and logs all live in one directory (see ResolveDataDir).
+string appDir = ResolveDataDir();
+Directory.CreateDirectory(appDir);
+OpenMediaBridge.Logging.Log.Init(appDir);
+
+// Everything logs through the one sink; keep the [ERROR]/[WARNING] convention
+// working by mapping it onto the logger's levels.
 void Log(string message)
 {
-    // Errors/warnings go to stderr so they survive under systemd, where stdout
-    // is discarded (it is only TUI escape codes) but stderr is sent to journal.
-    if (message.Contains("[ERROR]") || message.Contains("[WARNING]"))
-        Console.Error.WriteLine(message);
-    else
-        Console.WriteLine(message);
-    try { File.AppendAllText(logFile, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} {message}\n"); }
-    catch { }
+    if (message.Contains("[ERROR]")) OpenMediaBridge.Logging.Log.Error(message);
+    else if (message.Contains("[WARNING]")) OpenMediaBridge.Logging.Log.Warning(message);
+    else OpenMediaBridge.Logging.Log.Info(message);
+}
+
+// Where the app keeps its files. Precedence:
+//   1. OPENMEDIABRIDGE_DATA_DIR when set (used by the AUR wrapper),
+//   2. the folder next to the binary if it already holds a config.json — keeps
+//      existing and deliberately "portable" installs working (local files win),
+//   3. otherwise a single per-user location under XDG config.
+string ResolveDataDir()
+{
+    var env = Environment.GetEnvironmentVariable("OPENMEDIABRIDGE_DATA_DIR");
+    if (!string.IsNullOrWhiteSpace(env)) return env;
+
+    var localDir = AppContext.BaseDirectory;
+    if (File.Exists(Path.Combine(localDir, "config.json"))) return localDir;
+
+    var xdg = Environment.GetEnvironmentVariable("XDG_CONFIG_HOME");
+    var configBase = !string.IsNullOrWhiteSpace(xdg)
+        ? xdg
+        : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".config");
+    return Path.Combine(configBase, "openmediabridge");
 }
 
 Log("Starting OpenMediaBridge...");
-Console.OutputEncoding = System.Text.Encoding.UTF8;
-
-// If OPENMEDIABRIDGE_DATA_DIR is set (e.g. by the AUR wrapper), use that.
-// Otherwise keep files next to the binary for direct-download users.
-string appDir = Environment.GetEnvironmentVariable("OPENMEDIABRIDGE_DATA_DIR")
-    ?? AppContext.BaseDirectory;
+Log($"Data directory: {appDir}");
 
 string configPath = Path.Combine(appDir, "config.json");
 string cacheDir   = Path.Combine(appDir, "cache");
 string dbPath     = Path.Combine(appDir, "db.sqlite3");
-
-Directory.CreateDirectory(appDir);
 
 if (Environment.OSVersion.Platform != PlatformID.Unix)
 {
@@ -106,8 +122,8 @@ server.MediaServiceFactory = (session, srv) => wmService;
 // Create Lyrics Service
 var lyricsService = new LyricsService(wmService);
 
-// Route MPRIS log messages into the TUI debug log, then start polling.
-wmService.LogCallback = lyricsService.AddDebugLog;
+// Route MPRIS log messages through the shared logger, then start polling.
+wmService.LogCallback = OpenMediaBridge.Logging.Log.Debug;
 wmService.Start();
 
 // Connect lyrics service to main session
