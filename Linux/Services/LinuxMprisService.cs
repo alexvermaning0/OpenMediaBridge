@@ -136,6 +136,17 @@ namespace OpenMediaBridge.Services
             }
         }
 
+        // Prefix playerctl args with `-i player1,player2` for any players listed
+        // in Config.IgnorePlayers, so e.g. a browser's MPRIS session doesn't get
+        // picked over the real music player.
+        private string[] WithIgnored(params string[] args)
+        {
+            var ignore = Config?.IgnorePlayers;
+            if (ignore == null || ignore.Length == 0) return args;
+            var list = string.Join(",", ignore.Where(p => !string.IsNullOrWhiteSpace(p)));
+            return list.Length == 0 ? args : new[] { "-i", list }.Concat(args).ToArray();
+        }
+
         // Single playerctl call returns all fields tab-separated.
         private static readonly string[] _format = [
             "metadata", "--format",
@@ -180,7 +191,7 @@ namespace OpenMediaBridge.Services
 
         private async Task UpdateStateAsync()
         {
-            var raw = await RunPlayerctlAsync(_format);
+            var raw = await RunPlayerctlAsync(WithIgnored(_format));
 
             if (string.IsNullOrEmpty(raw))
             {
@@ -292,11 +303,14 @@ namespace OpenMediaBridge.Services
                 MediaControlType.Previous => "previous",
                 _                         => null
             };
-            if (cmd != null) await RunPlayerctlAsync(cmd);
+            if (cmd != null) await RunPlayerctlAsync(WithIgnored(cmd));
         }
 
+        private bool _disposed;
         public void Dispose()
         {
+            if (_disposed) return;
+            _disposed = true;
             _cts.Cancel();
             _cts.Dispose();
         }

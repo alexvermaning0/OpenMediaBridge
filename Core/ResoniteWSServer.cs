@@ -13,6 +13,12 @@ namespace OpenMediaBridge
 
         public Func<ResoniteWSSession, ResoniteWSServer, IMediaService> MediaServiceFactory { get; set; }
 
+        // When the factory hands every session the same media service (Linux),
+        // that instance is owned by the host and must outlive any single
+        // connection — sessions must not dispose it. Null when each session gets
+        // its own service (Windows/macOS).
+        public IMediaService SharedMediaService { get; set; }
+
         protected override TcpSession CreateSession() { return new ResoniteWSSession(this); }
 
         // Fan a per-session action out to every live client. The shared media

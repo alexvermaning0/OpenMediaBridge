@@ -116,8 +116,10 @@ var dummySession = new ResoniteWSSession(server);
 var wmService = new LinuxMprisService(dummySession, server);
 
 // Every connected client shares this one service rather than spawning its own
-// playerctl poll loop.
+// playerctl poll loop. Mark it shared so sessions don't dispose it on
+// disconnect (that would cancel the poll loop for everyone).
 server.MediaServiceFactory = (session, srv) => wmService;
+server.SharedMediaService = wmService;
 
 // Create Lyrics Service
 var lyricsService = new LyricsService(wmService);

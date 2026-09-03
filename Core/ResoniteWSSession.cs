@@ -436,7 +436,12 @@ namespace OpenMediaBridge
                 LyricsService.OnStatusChanged -= OnStatusChanged;
             }
 
-            WMService?.Dispose();
+            // A shared media service (Linux) is owned by the host and outlives
+            // this connection — disposing it here would cancel the poll loop for
+            // everyone and double-dispose on the next disconnect. Only dispose a
+            // service this session actually owns (Windows/macOS).
+            if (WMService != null && !ReferenceEquals(WMService, WMService.Server?.SharedMediaService))
+                WMService.Dispose();
         }
     }
 }
