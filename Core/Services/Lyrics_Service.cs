@@ -37,6 +37,10 @@ namespace OpenMediaBridge.Services
         // translation
         private bool _translationEnabled = false;
         private List<LyricsLine> _translatedLines = null;
+        // The song `_translatedLines` was actually computed for. Display only
+        // uses the translation when this matches the current song, so a stale
+        // translation from a previous song is never shown against the new one.
+        private string _translatedLinesSong = "";
         private string _translatedForKey = "";
         private string _translatedForSource = "";
         private bool _translationPending = false;
@@ -252,7 +256,7 @@ namespace OpenMediaBridge.Services
             {
                 formattedLyric = "";
             }
-            else if (_wordSyncMode && !(_translationEnabled && _translatedLines != null))
+            else if (_wordSyncMode && !(_translationEnabled && HasCurrentTranslation))
             {
                 // Add a lead to compensate for server tick (50ms) + WS transport (~100ms) latency,
                 // so the first word highlight reaches the client closer to when the audio hits it.
@@ -277,7 +281,7 @@ namespace OpenMediaBridge.Services
             }
             else if (_translationEnabled)
             {
-                if (_translatedLines != null)
+                if (HasCurrentTranslation)
                 {
                     int idx = _translatedLines.FindLastIndex(l => l.Time <= simulatedPosition);
                     string newLine = idx >= 0 ? _translatedLines[idx].Text : "";
@@ -856,7 +860,7 @@ namespace OpenMediaBridge.Services
         }
         public string GetFullLyricsText()
         {
-            if (_translationEnabled && _translatedLines != null && _translatedLines.Count > 0)
+            if (_translationEnabled && HasCurrentTranslation && _translatedLines.Count > 0)
                 return string.Join("\n", _translatedLines.Select(l => l.Text));
             return _lyricsFetcher.GetFullLyricsText();
         }
@@ -1021,6 +1025,7 @@ namespace OpenMediaBridge.Services
             if (string.IsNullOrWhiteSpace(langCode) || langCode == _translationTargetLang) return;
             _translationTargetLang = langCode.ToLowerInvariant();
             _translatedLines = null;
+            _translatedLinesSong = "";
             _translatedForKey = "";
             _translatedForSource = "";
             DebugLog($"Translation language: {_translationTargetLang}");
@@ -1084,6 +1089,12 @@ namespace OpenMediaBridge.Services
             Console.ResetColor();
         }
 
+        // True only when the translated lines on hand belong to the song now
+        // playing. Guards the display against showing a previous song's
+        // translation while the current one is still fetching/translating.
+        private bool HasCurrentTranslation =>
+            _translatedLines != null && _translatedLinesSong == $"{_lastArtist}|{_lastTitle}";
+
         private void TriggerTranslationIfNeeded(bool sourceChanged = false)
         {
             if (!_translationEnabled) return;
@@ -1113,6 +1124,7 @@ namespace OpenMediaBridge.Services
                 out var cachedLines))
             {
                 _translatedLines = cachedLines;
+                _translatedLinesSong = key;
                 _translatedForKey = key;
                 _translatedForSource = currentSource;
                 DebugLog($"Translation loaded from cache ({_translationTargetLang})");
@@ -1140,6 +1152,7 @@ namespace OpenMediaBridge.Services
                     if ($"{_lastArtist}|{_lastTitle}" == capturedKey)
                     {
                         _translatedLines = translated;
+                        _translatedLinesSong = capturedKey;
                         _translatedForKey = capturedKey;
                         _translatedForSource = capturedSource;
                         CacheHelper.SaveTranslated(
