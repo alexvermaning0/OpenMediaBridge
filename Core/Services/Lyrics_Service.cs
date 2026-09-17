@@ -130,7 +130,21 @@ namespace OpenMediaBridge.Services
             DebugLog("LyricsService initialized");
         }
 
+        private int _tickBusy;
         private void Tick(object sender, ElapsedEventArgs e)
+        {
+            // System.Timers.Timer raises Elapsed on the thread pool without
+            // waiting for the previous handler, so a slow tick (FetchLyrics does
+            // blocking network I/O on a song change) would otherwise overlap with
+            // later ticks and race on shared state / the fetcher's result list.
+            // Serialize: if a tick is still running, drop this one.
+            if (System.Threading.Interlocked.CompareExchange(ref _tickBusy, 1, 0) != 0)
+                return;
+            try { TickCore(sender, e); }
+            finally { System.Threading.Interlocked.Exchange(ref _tickBusy, 0); }
+        }
+
+        private void TickCore(object sender, ElapsedEventArgs e)
         {
             // Handle keyboard input
             ProcessKeyboardInput();
