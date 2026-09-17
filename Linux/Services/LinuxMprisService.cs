@@ -273,7 +273,11 @@ namespace OpenMediaBridge.Services
 
             if (songChanged)
             {
-                await CoverServer.UpdateCoverAsync(newMedia);
+                // Push title/artist/state to clients immediately. Cover art is a
+                // network lookup (up to ~10s if the APIs are slow) — fetching it
+                // in the background instead of awaiting it here keeps metadata and
+                // the poll loop from stalling on a song change. When the cover
+                // resolves, re-push so the new URL goes out.
                 Server.ForEachSession(s =>
                 {
                     s.SendMediaUpdate();
@@ -282,6 +286,9 @@ namespace OpenMediaBridge.Services
                     // after the next toggle.
                     s.SendPlaybackUpdate();
                 });
+                _ = CoverServer.UpdateCoverAsync(newMedia).ContinueWith(
+                    _ => Server.ForEachSession(s => s.SendMediaUpdate()),
+                    TaskScheduler.Default);
             }
             else if (playbackChanged)
             {

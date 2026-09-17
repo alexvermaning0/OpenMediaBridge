@@ -102,8 +102,12 @@ namespace OpenMediaBridge.Services
                 Duration = TimeSpan.FromMilliseconds(playerInfo.Duration)
             };
 
-            await CoverServer.UpdateCoverAsync(CurrentMediaProperties);
+            // Push metadata now; fetch cover art in the background (network, slow)
+            // and re-push when it resolves, rather than stalling the poll on it.
+            var mediaForCover = CurrentMediaProperties;
             WSSession.SendMediaUpdate();
+            _ = CoverServer.UpdateCoverAsync(mediaForCover).ContinueWith(
+                _ => WSSession.SendMediaUpdate(), TaskScheduler.Default);
         }
 
         private async Task<PlayerInfo?> GetCurrentPlayerInfoAsync()
@@ -390,8 +394,11 @@ tell application ""{CurrentPlayerName}""
 end tell";
         }
 
+        private bool _disposed;
         public void Dispose()
         {
+            if (_disposed) return;
+            _disposed = true;
             _cts?.Cancel();
             _cts?.Dispose();
         }

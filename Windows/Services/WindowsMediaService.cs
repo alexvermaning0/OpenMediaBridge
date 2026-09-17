@@ -62,24 +62,31 @@ namespace OpenMediaBridge.Services
 
         private async void MediaTransportControlsSessionManager_CurrentSessionChanged(GlobalSystemMediaTransportControlsSessionManager sender, CurrentSessionChangedEventArgs args)
         {
-            // get and set session and properties
-            _currentSession = _sessionManager.GetCurrentSession();
-
-            // reset events
-            if (_currentSession != null)
+            // This is an async void event handler — an unhandled exception here
+            // crashes the process, so everything is wrapped.
+            try
             {
-                _currentSession.MediaPropertiesChanged += CurrentMediaSession_MediaPropertiesChanged;
-                _currentSession.PlaybackInfoChanged += CurrentMediaSession_PlaybackInfoChanged;
+                // get and set session and properties
+                _currentSession = _sessionManager.GetCurrentSession();
 
-                _winrtMediaProperties = await _currentSession.TryGetMediaPropertiesAsync();
-                CurrentMediaProperties = ToMediaProperties(_winrtMediaProperties);
+                // reset events
+                if (_currentSession != null)
+                {
+                    _currentSession.MediaPropertiesChanged += CurrentMediaSession_MediaPropertiesChanged;
+                    _currentSession.PlaybackInfoChanged += CurrentMediaSession_PlaybackInfoChanged;
 
-                // Update cover art and WAIT for it
-                await CoverServer.UpdateCoverAsync(CurrentMediaProperties);
+                    _winrtMediaProperties = await _currentSession.TryGetMediaPropertiesAsync();
+                    CurrentMediaProperties = ToMediaProperties(_winrtMediaProperties);
 
-                // Notify session of media update
-                WSSession.SendMediaUpdate();
+                    // Push metadata now; fetch cover art in the background and
+                    // re-push when it resolves, rather than blocking on it.
+                    var media = CurrentMediaProperties;
+                    WSSession.SendMediaUpdate();
+                    _ = CoverServer.UpdateCoverAsync(media).ContinueWith(
+                        _ => WSSession.SendMediaUpdate(), TaskScheduler.Default);
+                }
             }
+            catch { }
         }
 
         private async void CurrentMediaSession_MediaPropertiesChanged(GlobalSystemMediaTransportControlsSession sender, MediaPropertiesChangedEventArgs args)
@@ -109,11 +116,12 @@ namespace OpenMediaBridge.Services
                 _winrtMediaProperties = props;
                 CurrentMediaProperties = ToMediaProperties(props);
 
-                // Fetch cover art and WAIT for it
-                await CoverServer.UpdateCoverAsync(CurrentMediaProperties);
-
-                // Now notify session of media update (cover URL is ready)
+                // Push metadata now; fetch cover in the background and re-push
+                // when ready, so title/artist aren't delayed by the cover lookup.
+                var media = CurrentMediaProperties;
                 WSSession.SendMediaUpdate();
+                _ = CoverServer.UpdateCoverAsync(media).ContinueWith(
+                    _ => WSSession.SendMediaUpdate(), TaskScheduler.Default);
             }
             catch { }
         }
