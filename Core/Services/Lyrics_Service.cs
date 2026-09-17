@@ -44,6 +44,10 @@ namespace OpenMediaBridge.Services
         private string _translatedForKey = "";
         private string _translatedForSource = "";
         private bool _translationPending = false;
+        // After a failed translation, don't auto-retry until this time (backoff
+        // so a down/broken endpoint isn't hammered every tick). Reset on song
+        // change and bypassed on explicit user actions.
+        private DateTime _translationRetryAfter = DateTime.MinValue;
         private string _translationTargetLang = "en";
         private string _libreTranslateUrl = "https://libretranslate.com";
         private string _translationApiKey = "";
@@ -243,6 +247,7 @@ namespace OpenMediaBridge.Services
                 _lastLyricUpdateTime = DateTime.MinValue;
                 _translatedForKey = "";
                 _translatedForSource = "";
+                _translationRetryAfter = DateTime.MinValue; // new song: retry now
             }
             else if (title != _lastTitle || artist != _lastArtist)
             {
@@ -312,10 +317,28 @@ namespace OpenMediaBridge.Services
                         shouldUpdate = true;
                     }
                 }
-                else if (_translationPending && !string.IsNullOrEmpty(_currentLyric))
+                else
                 {
-                    _currentLyric = "";
-                    shouldUpdate = true;
+                    // Translation is on but there's no translation for this song
+                    // yet — loading, or the endpoint failed/was unreachable. Keep
+                    // trying (throttled), and meanwhile show the untranslated line
+                    // so a translation failure degrades to the original lyrics
+                    // instead of a blank screen that needs re-toggling.
+                    TriggerTranslationIfNeeded();
+
+                    string newLine = _lyricsFetcher.GetCurrentLine(simulatedPosition);
+                    if (newLine != _currentLyric)
+                    {
+                        _currentLyric = newLine;
+                        _lastLyricUpdateTime = DateTime.UtcNow;
+                        shouldUpdate = true;
+                    }
+                    else if (_isPlaying && !string.IsNullOrEmpty(_currentLyric) &&
+                             (DateTime.UtcNow - _lastLyricUpdateTime).TotalMilliseconds > 5000)
+                    {
+                        _currentLyric = "";
+                        shouldUpdate = true;
+                    }
                 }
                 formattedLyric = _currentLyric;
             }
@@ -1123,6 +1146,11 @@ namespace OpenMediaBridge.Services
             if (key == _translatedForKey && currentSource == _translatedForSource && !sourceChanged)
                 return;
 
+            // Back off automatic retries after a failure; an explicit user action
+            // (source change/toggle/language) bypasses the wait.
+            if (!sourceChanged && DateTime.UtcNow < _translationRetryAfter)
+                return;
+
             // When source changed for the same song, clear stale translation
             // but DON'T null _translatedLines yet — keep showing old translation
             // until the new one is ready
@@ -1178,6 +1206,10 @@ namespace OpenMediaBridge.Services
                 }
                 catch (Exception ex)
                 {
+                    // Endpoint down/broken — wait before the next automatic retry
+                    // so we don't spam it. It recovers on its own once the server
+                    // is back (or immediately on a source/toggle change).
+                    _translationRetryAfter = DateTime.UtcNow.AddSeconds(10);
                     DebugLog($"Translation failed: {ex.Message}");
                 }
                 finally
