@@ -944,7 +944,9 @@ namespace OpenMediaBridge.Services
                 ? _translatedLines
                 : _lyricsFetcher.GetCurrentRawLines();
             if (lines == null || lines.Count == 0)
-                return "";
+                // No synced lyrics for this track — show a placeholder rather than
+                // a blank panel, styled like an upcoming line.
+                return $"<color={_viewUpcomingColor}>No lyrics available</color>";
 
             long pos = _lastSimulatedPosition;
             int cur = lines.FindLastIndex(l => l.Time <= pos);

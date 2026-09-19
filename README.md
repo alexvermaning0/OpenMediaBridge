@@ -186,8 +186,8 @@ Dedicated connection for lyrics display. Receives high-frequency lyric updates.
 > `lyricsview:` renders the full lyrics with the current line bolded and
 > colored, sung lines dimmed, and the rest in the upcoming color — a ready-made
 > karaoke view for a Resonite/OBS text field, no client-side line matching
-> needed. Colors are set by the `lyricsview_*_color` config keys. It's empty
-> when the track has no synced lyrics.
+> needed. Colors are set by the `lyricsview_*_color` config keys. When the track
+> has no synced lyrics it sends a single `No lyrics available` line.
 
 ### Commands (Client → Server)
 
