@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 using Windows.Media.Control;
 
@@ -146,7 +147,10 @@ namespace OpenMediaBridge.Services
 
         public MediaPlaybackInfo GetPlaybackInfo()
         {
-            var playback = _currentSession.GetPlaybackInfo();
+            var session = _currentSession;
+            if (session == null) return new MediaPlaybackInfo();
+
+            var playback = session.GetPlaybackInfo();
             return new MediaPlaybackInfo
             {
                 IsPlaying = playback.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing,
@@ -162,10 +166,38 @@ namespace OpenMediaBridge.Services
 
         public MediaTimelineInfo GetTimelineInfo()
         {
-            var timeline = _currentSession.GetTimelineProperties();
+            var session = _currentSession;
+            if (session == null) return new MediaTimelineInfo();
+
+            var timeline = session.GetTimelineProperties();
+            var position = timeline.Position;
+
+            // SMTC only refreshes Position when the app reports it, so for players
+            // that report it infrequently it would otherwise appear frozen and
+            // clients would see pos: stall. While playing, extrapolate from the
+            // last update so the position keeps moving; pausing/seeking re-anchors
+            // it on the next SMTC update.
+            try
+            {
+                var playback = session.GetPlaybackInfo();
+                if (playback != null
+                    && playback.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing
+                    && timeline.LastUpdatedTime > DateTimeOffset.MinValue)
+                {
+                    var extra = DateTimeOffset.Now - timeline.LastUpdatedTime;
+                    if (extra > TimeSpan.Zero)
+                    {
+                        position += extra;
+                        if (timeline.EndTime > TimeSpan.Zero && position > timeline.EndTime)
+                            position = timeline.EndTime;
+                    }
+                }
+            }
+            catch { }
+
             return new MediaTimelineInfo
             {
-                Position = timeline.Position,
+                Position = position,
                 Duration = timeline.EndTime
             };
         }
