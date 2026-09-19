@@ -870,23 +870,43 @@ namespace OpenMediaBridge.Services
         public void AddDebugLog(string message) => OpenMediaBridge.Logging.Log.Debug(message);
 
         // Public methods for WebSocket control
-        public void EnableWordSync() => _wordSyncMode = true;
-        public void DisableWordSync() => _wordSyncMode = false;
-        public void ToggleWordSync() => _wordSyncMode = !_wordSyncMode;
+        // These push OnStatusChanged so a change reaches every lyrics client
+        // live, not only the one that sent the command (which gets the echo) or
+        // whoever next asks with "?". The console-key path raises the same events
+        // inline; it flips the fields directly and doesn't call these, so there's
+        // no double push.
+        public void EnableWordSync()
+        {
+            _wordSyncMode = true;
+            OnStatusChanged?.Invoke("wordsync", _wordSyncMode.ToString().ToLower());
+        }
+        public void DisableWordSync()
+        {
+            _wordSyncMode = false;
+            OnStatusChanged?.Invoke("wordsync", _wordSyncMode.ToString().ToLower());
+        }
+        public void ToggleWordSync()
+        {
+            _wordSyncMode = !_wordSyncMode;
+            OnStatusChanged?.Invoke("wordsync", _wordSyncMode.ToString().ToLower());
+        }
         public void ToggleOfflineMode()
         {
             _offlineMode = !_offlineMode;
             LyricsFetcher.OfflineMode = _offlineMode;
+            OnStatusChanged?.Invoke("offline", _offlineMode.ToString().ToLower());
         }
         public void ToggleCjkFilter()
         {
             _cjkFilter = !_cjkFilter;
             LyricsFetcher.FilterCjkLyrics = _cjkFilter;
+            OnStatusChanged?.Invoke("cjk", _cjkFilter.ToString().ToLower());
         }
         public void TogglePlainFallback()
         {
             _plainLyricsFallback = !_plainLyricsFallback;
             LyricsFetcher.PlainLyricsFallback = _plainLyricsFallback;
+            OnStatusChanged?.Invoke("plain", _plainLyricsFallback.ToString().ToLower());
         }
         public void NextLyrics()
         {
