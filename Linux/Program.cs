@@ -128,8 +128,8 @@ var lyricsService = new LyricsService(wmService);
 wmService.LogCallback = OpenMediaBridge.Logging.Log.Debug;
 wmService.Start();
 
-// Connect lyrics service to main session
-dummySession.SetLyricsService(lyricsService);
+// Lyrics are served on the dedicated lyrics port only; port 8080 is media-only
+// and never emits lyrics.
 
 // Connect Discord service to lyrics updates
 if (discordService.IsEnabled)

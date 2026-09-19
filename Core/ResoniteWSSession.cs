@@ -7,10 +7,11 @@ using Timer = System.Timers.Timer;
 
 namespace OpenMediaBridge
 {
+    // Port 8080: media metadata + transport controls only. Lyrics live on their
+    // own port (see LyricsWSSession) and are never emitted here.
     public class ResoniteWSSession : WsSession
     {
         private IMediaService WMService { get; set; }
-        private LyricsService LyricsService { get; set; }
         private Timer _positionTimer;
 
         // Track last sent values to only send on change
@@ -20,47 +21,14 @@ namespace OpenMediaBridge
         private long _lastDuration = 0;
         private string _lastCover = "";
         private string _lastSource = "";
-        private string _lastLyricSrc = "";
         private bool _lastStatus = false;
         private bool _lastShuffle = false;
         private string _lastRepeat = "";
-        private string _lastLyric = "";
-        private double _lastProgress = 0;
-        private bool _lastWordSync = false;
-        private int _lastOffset = 0;
         private bool _initialSent = false;
 
         public ResoniteWSSession(ResoniteWSServer server) : base(server)
         {
             WMService = server.MediaServiceFactory?.Invoke(this, server);
-        }
-
-        public void SetLyricsService(LyricsService lyricsService)
-        {
-            LyricsService = lyricsService;
-            if (LyricsService != null)
-            {
-                LyricsService.OnLyricUpdate += OnLyricUpdate;
-                LyricsService.OnStatusChanged += OnStatusChanged;
-            }
-        }
-
-        private void OnLyricUpdate(string lyric, double progress)
-        {
-            // Send lyric if changed (not null)
-            if (lyric != null && lyric != _lastLyric)
-            {
-                _lastLyric = lyric;
-                SendText($"lyric:{lyric}");
-            }
-
-            // Always send progress
-            SendText($"prog:{progress:F3}");
-        }
-
-        private void OnStatusChanged(string key, string value)
-        {
-            SendText($"{key}:{value}");
         }
 
         public override void OnWsConnected(HttpRequest request)
@@ -87,67 +55,57 @@ namespace OpenMediaBridge
         {
             _initialSent = true;
 
-            // Send media info
-            if (WMService?.CurrentMediaProperties != null)
+            try
             {
-                var props = WMService.CurrentMediaProperties;
+                // Send media info
+                if (WMService?.CurrentMediaProperties != null)
+                {
+                    var props = WMService.CurrentMediaProperties;
 
-                _lastTitle = props.Title ?? "";
-                _lastArtist = props.Artist ?? "";
-                _lastAlbum = props.AlbumTitle ?? "";
+                    _lastTitle = props.Title ?? "";
+                    _lastArtist = props.Artist ?? "";
+                    _lastAlbum = props.AlbumTitle ?? "";
 
-                SendText($"title:{_lastTitle}");
-                SendText($"artist:{_lastArtist}");
-                SendText($"album:{_lastAlbum}");
+                    SendText($"title:{_lastTitle}");
+                    SendText($"artist:{_lastArtist}");
+                    SendText($"album:{_lastAlbum}");
+                }
+
+                // Send playback info
+                if (WMService != null && WMService.HasActiveSession)
+                {
+                    var playback = WMService.GetPlaybackInfo();
+                    var timeline = WMService.GetTimelineInfo();
+
+                    _lastDuration = (long)timeline.Duration.TotalMilliseconds;
+                    _lastStatus = playback.IsPlaying;
+                    _lastShuffle = playback.IsShuffleActive;
+                    _lastRepeat = playback.RepeatMode;
+                    _lastSource = WMService.CurrentSourceApp ?? "";
+
+                    // Clean up source name
+                    if (_lastSource.Contains("."))
+                        _lastSource = _lastSource.Split('.')[0];
+
+                    SendText($"dur:{_lastDuration}");
+                    SendText($"status:{_lastStatus.ToString().ToLower()}");
+                    SendText($"shuffle:{_lastShuffle.ToString().ToLower()}");
+                    SendText($"repeat:{_lastRepeat}");
+                    SendText($"source:{_lastSource}");
+
+                    // Position
+                    SendText($"pos:{(long)timeline.Position.TotalMilliseconds}");
+                }
+
+                // Cover URL (if cover server is running)
+                var coverUrl = CoverServer.GetCurrentCoverUrl();
+                if (!string.IsNullOrEmpty(coverUrl))
+                {
+                    _lastCover = coverUrl;
+                    SendText($"cover:{_lastCover}");
+                }
             }
-
-            // Send playback info
-            if (WMService != null && WMService.HasActiveSession)
-            {
-                var playback = WMService.GetPlaybackInfo();
-                var timeline = WMService.GetTimelineInfo();
-
-                _lastDuration = (long)timeline.Duration.TotalMilliseconds;
-                _lastStatus = playback.IsPlaying;
-                _lastShuffle = playback.IsShuffleActive;
-                _lastRepeat = playback.RepeatMode;
-                _lastSource = WMService.CurrentSourceApp ?? "";
-
-                // Clean up source name
-                if (_lastSource.Contains("."))
-                    _lastSource = _lastSource.Split('.')[0];
-
-                SendText($"dur:{_lastDuration}");
-                SendText($"status:{_lastStatus.ToString().ToLower()}");
-                SendText($"shuffle:{_lastShuffle.ToString().ToLower()}");
-                SendText($"repeat:{_lastRepeat}");
-                SendText($"source:{_lastSource}");
-
-                // Position
-                SendText($"pos:{(long)timeline.Position.TotalMilliseconds}");
-            }
-
-            // Send lyrics service info
-            if (LyricsService != null)
-            {
-                _lastLyricSrc = LyricsService.CurrentSource;
-                _lastWordSync = LyricsService.WordSyncEnabled;
-                _lastOffset = LyricsService.CurrentOffset;
-
-                SendText($"lyricsrc:{_lastLyricSrc}");
-                SendText($"wordsync:{_lastWordSync.ToString().ToLower()}");
-                SendText($"offset:{_lastOffset}");
-                SendText($"translate:{LyricsService.TranslationEnabled.ToString().ToLower()}");
-                SendText($"translatelang:{LyricsService.TranslationTargetLang}");
-            }
-
-            // Cover URL (if cover server is running)
-            var coverUrl = CoverServer.GetCurrentCoverUrl();
-            if (!string.IsNullOrEmpty(coverUrl))
-            {
-                _lastCover = coverUrl;
-                SendText($"cover:{_lastCover}");
-            }
+            catch { }
         }
 
         private void SendPosition(object sender, ElapsedEventArgs e)
@@ -253,22 +211,6 @@ namespace OpenMediaBridge
             catch { }
         }
 
-        public void SendLyricsSourceUpdate(string source)
-        {
-            if (!_initialSent) return;
-            if (source != _lastLyricSrc)
-            {
-                _lastLyricSrc = source;
-                SendText($"lyricsrc:{_lastLyricSrc}");
-            }
-        }
-
-        public void SendSettingUpdate(string key, string value)
-        {
-            if (!_initialSent) return;
-            SendText($"{key}:{value}");
-        }
-
         public override void OnWsReceived(byte[] buffer, long offset, long size)
         {
             string msg = Encoding.UTF8.GetString(buffer, (int)offset, (int)size).Trim();
@@ -302,122 +244,18 @@ namespace OpenMediaBridge
                     _ = WMService.TryMediaControl(MediaControlType.Previous);
                     break;
 
-                // Lyrics controls (forwarded to LyricsService)
-                case "wordsync:on":
-                    LyricsService?.EnableWordSync();
-                    SendText("wordsync:true");
-                    break;
-                case "wordsync:off":
-                    LyricsService?.DisableWordSync();
-                    SendText("wordsync:false");
-                    break;
-                case "toggle:translation":
-                case "t":
-                    LyricsService?.ToggleTranslation();
-                    SendText($"translate:{LyricsService?.TranslationEnabled.ToString().ToLower()}");
-                    break;
-                case "toggle:wordsync":
-                case "w":
-                    LyricsService?.ToggleWordSync();
-                    SendText($"wordsync:{LyricsService?.WordSyncEnabled.ToString().ToLower()}");
-                    break;
-                case "toggle:offline":
-                case "o":
-                    LyricsService?.ToggleOfflineMode();
-                    SendText($"offline:{LyricsService?.OfflineEnabled.ToString().ToLower()}");
-                    break;
-                case "toggle:cjk":
-                case "c":
-                    LyricsService?.ToggleCjkFilter();
-                    SendText($"cjk:{LyricsService?.CjkFilterEnabled.ToString().ToLower()}");
-                    break;
-                case "toggle:plain":
-                case "p":
-                    LyricsService?.TogglePlainFallback();
-                    SendText($"plain:{LyricsService?.PlainFallbackEnabled.ToString().ToLower()}");
-                    break;
-                case "nextlyrics":
-                case "n":
-                    LyricsService?.NextLyrics();
-                    SendText($"lyricsrc:{LyricsService?.CurrentSource}");
-                    break;
-                case "refresh":
-                case "r":
-                    LyricsService?.RefreshLyrics();
-                    break;
-                case "clearcache":
-                case "x":
-                    LyricsService?.ClearCacheAndRefresh();
-                    break;
-                case "offset:+50":
-                case "+":
-                    LyricsService?.AdjustOffset(50);
-                    SendText($"offset:{LyricsService?.CurrentOffset}");
-                    break;
-                case "offset:-50":
-                case "-":
-                    LyricsService?.AdjustOffset(-50);
-                    SendText($"offset:{LyricsService?.CurrentOffset}");
-                    break;
-                case "offset:+500":
-                    LyricsService?.AdjustOffset(500);
-                    SendText($"offset:{LyricsService?.CurrentOffset}");
-                    break;
-                case "offset:-500":
-                    LyricsService?.AdjustOffset(-500);
-                    SendText($"offset:{LyricsService?.CurrentOffset}");
-                    break;
-                case "offset:save":
-                case "s":
-                    LyricsService?.SaveOffset();
-                    break;
-
                 // Status/data requests
                 case "getstatus":
                 case "status":
                 case "?":
                     SendInitialState();
                     break;
-                case "getfulllyrics":
-                    SendFullLyrics();
-                    break;
 
                 // Help
                 case "help":
                 case "h":
-                    SendText("commands:play,pause,next,prev,stop,t,w,o,c,p,n,r,x,+,-,s,?,getfulllyrics");
+                    SendText("commands:play,pause,next,prev,stop,?");
                     break;
-
-                default:
-                    if (msgLower.StartsWith("lang:"))
-                    {
-                        var langCode = msg.Substring(5).Trim();
-                        LyricsService?.SetTranslationLanguage(langCode);
-                        SendText($"translatelang:{LyricsService?.TranslationTargetLang}");
-                    }
-                    else if (msgLower.StartsWith("offset:"))
-                    {
-                        var offsetStr = msg.Substring(7);
-                        if (int.TryParse(offsetStr, out int customOffset))
-                        {
-                            LyricsService?.AdjustOffset(customOffset);
-                            SendText($"offset:{LyricsService?.CurrentOffset}");
-                        }
-                    }
-                    break;
-            }
-        }
-
-        private void SendFullLyrics()
-        {
-            var fullLyrics = LyricsService?.GetFullLyricsText();
-            if (!string.IsNullOrEmpty(fullLyrics))
-            {
-                SendText($"fulllyrics:{fullLyrics}");
-            }
-            else
-            {
-                SendText("fulllyrics:");
             }
         }
 
@@ -429,12 +267,6 @@ namespace OpenMediaBridge
 
             _positionTimer?.Stop();
             _positionTimer?.Dispose();
-
-            if (LyricsService != null)
-            {
-                LyricsService.OnLyricUpdate -= OnLyricUpdate;
-                LyricsService.OnStatusChanged -= OnStatusChanged;
-            }
 
             // A shared media service (Linux) is owned by the host and outlives
             // this connection — disposing it here would cancel the poll loop for

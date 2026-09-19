@@ -47,8 +47,8 @@ systemctl --user enable --now openmediabridge.service
 
 | Port | Protocol | Purpose |
 |------|----------|---------|
-| 8080 | WebSocket | Media info + lyrics |
-| 6555 | WebSocket | Lyrics only (dedicated) |
+| 8080 | WebSocket | Media info + transport controls |
+| 6555 | WebSocket | Lyrics (dedicated) |
 
 ## Configuration
 
@@ -126,17 +126,8 @@ All messages use a simple `key:value` format. Each message is sent separately (n
 | `repeat:<mode>` | Repeat mode (none/track/list) | `repeat:none` |
 | `pos:<ms>` | Current position in ms (every 1 second) | `pos:45000` |
 
-#### Lyrics Info (sent on connect and change)
-
-| Message | Description | Example |
-|---------|-------------|---------|
-| `lyric:<text>` | Current lyric line | `lyric:Never gonna give you up` |
-| `prog:<0-1>` | Song progress (every 1 second) | `prog:0.472` |
-| `lyricsrc:<source>` | Lyrics source | `lyricsrc:lrclib` |
-| `wordsync:<bool>` | Word sync mode enabled | `wordsync:false` |
-| `offset:<ms>` | Current offset in ms | `offset:-50` |
-| `translate:<bool>` | Translation enabled | `translate:true` |
-| `translatelang:<code>` | Translation target language | `translatelang:en` |
+> Lyrics are **not** sent on this port. Connect to port 6555 for `lyric:`,
+> `prog:`, lyrics source/offset/translation state and all lyrics controls.
 
 ### Commands (Client → Server)
 
@@ -151,37 +142,15 @@ All messages use a simple `key:value` format. Each message is sent separately (n
 | `previous` | | Previous track |
 | `stop` | | Stop playback |
 
-#### Lyrics Controls
-
-| Command | Short | Description |
-|---------|-------|-------------|
-| `toggle:wordsync` | `w` | Toggle word-by-word sync mode |
-| `toggle:offline` | `o` | Toggle offline mode |
-| `toggle:cjk` | `c` | Toggle CJK lyrics filter |
-| `toggle:plain` | `p` | Toggle plain lyrics fallback |
-| `toggle:translation` | `t` | Toggle lyrics translation |
-| `lang:<code>` | | Set translation target language (e.g. `lang:nl`) |
-| `nextlyrics` | `n` | Cycle to next lyrics source |
-| `refresh` | `r` | Re-fetch lyrics for current song |
-| `clearcache` | `x` | Clear cache for current song |
-
-#### Offset Controls
-
-| Command | Short | Description |
-|---------|-------|-------------|
-| `offset:+50` | `+` | Increase offset by 50ms |
-| `offset:-50` | `-` | Decrease offset by 50ms |
-| `offset:+500` | | Increase offset by 500ms |
-| `offset:-500` | | Decrease offset by 500ms |
-| `offset:save` | `s` | Save current offset to config |
+> Lyrics controls (word sync, translation, offset, source switching, etc.) are
+> accepted only on port 6555, not here.
 
 #### Info Commands
 
 | Command | Short | Description |
 |---------|-------|-------------|
-| `getstatus` | `?` | Resend all current state |
-| `status` | `?` | Resend all current state |
-| `getfulllyrics` | | Get full lyrics text (newline separated) |
+| `getstatus` | `?` | Resend all current media state |
+| `status` | `?` | Resend all current media state |
 | `help` | `h` | List available commands |
 
 ---
@@ -347,18 +316,16 @@ Messages use `key:value` format. In ProtoFlux:
 ### Example Flow
 
 ```
-Connect to ws://localhost:8080
-↓
-Receive initial state:
-  title:Song Name
-  artist:Artist
-  status:true
-  ...
-↓
-Receive updates:
-  lyric:Current line
-  prog:0.523
-  pos:112000
+Connect to ws://localhost:8080          Connect to ws://localhost:6555
+↓                                        ↓
+Receive initial media state:             Receive lyrics state:
+  title:Song Name                          lyricsrc:lrclib
+  artist:Artist                            wordsync:false
+  status:true                              ...
+  ...                                    ↓
+↓                                        Receive updates:
+Receive updates:                           lyric:Current line
+  pos:112000                               prog:0.523
 ```
 
 ---

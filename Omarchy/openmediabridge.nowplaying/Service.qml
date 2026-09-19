@@ -113,7 +113,8 @@ Item {
     case "status": explicitPlaying = toBool(value); sawExplicitStatus = true; break
     case "shuffle": shuffle = toBool(value); break
     case "repeat": repeatMode = value; break
-    // Lyrics — sent on both sockets, whichever arrives first wins
+    // Lyrics — sent only on the lyrics socket (6555); the media socket never
+    // emits these. Handled here regardless of which socket delivered them.
     case "lyric": lyric = value; break
     case "prog": progress = parseFloat(value) || 0; break
     case "lyricsrc": lyricSource = value; break

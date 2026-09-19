@@ -115,11 +115,9 @@ var server = new ResoniteWSServer("127.0.0.1", configFile.Port)
 var dummySession = new ResoniteWSSession(server);
 var wmService = new WindowsMediaService(dummySession, server);
 
-// Create Lyrics Service
+// Create Lyrics Service (served on the dedicated lyrics port only; port 8080
+// is media-only and never emits lyrics).
 var lyricsService = new LyricsService(wmService);
-
-// Connect lyrics service to main session
-dummySession.SetLyricsService(lyricsService);
 
 // Connect Discord service to lyrics updates
 if (discordService.IsEnabled)

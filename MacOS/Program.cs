@@ -117,7 +117,8 @@ var lyricsService = new LyricsService(macOSService);
 macOSService.LogCallback = OpenMediaBridge.Logging.Log.Debug;
 macOSService.Start();
 
-dummySession.SetLyricsService(lyricsService);
+// Lyrics are served on the dedicated lyrics port only; port 8080 is media-only
+// and never emits lyrics.
 
 if (discordService.IsEnabled)
 {
