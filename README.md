@@ -141,6 +141,14 @@ All messages use a simple `key:value` format. Each message is sent separately (n
 | `prev` | | Previous track |
 | `previous` | | Previous track |
 | `stop` | | Stop playback |
+| `seek:<ms>` | | Jump to an absolute position in milliseconds (e.g. `seek:112000`) |
+| `seek:<0-1>` | | Jump to a fraction of the track (e.g. `seek:0.5` = halfway) |
+
+> **Seeking:** a decimal value between 0 and 1 (e.g. `0.5`) is treated as a
+> fraction of the track — so a client already reading `prog:` can send it
+> straight back. Any other value is absolute milliseconds, matching `pos:` and
+> `dur:`. Fractional seeks are ignored when the track duration is unknown, and
+> players that don't support seeking silently ignore the request.
 
 > Lyrics controls (word sync, translation, offset, source switching, etc.) are
 > accepted only on port 6555, not here.

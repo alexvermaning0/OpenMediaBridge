@@ -39,6 +39,9 @@ namespace OpenMediaBridge.Services
         MediaPlaybackInfo GetPlaybackInfo();
         MediaTimelineInfo GetTimelineInfo();
         Task TryMediaControl(MediaControlType type);
+        // Seek to an absolute position within the current track. No-ops when the
+        // player has no active session or does not support seeking.
+        Task SeekAsync(TimeSpan position);
         // Begin producing media updates for this service's WSSession. Platforms
         // that poll (Linux/macOS) start their loop here; event-driven platforms
         // (Windows) initialize in their constructor and may no-op this.

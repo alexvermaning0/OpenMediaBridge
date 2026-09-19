@@ -231,6 +231,21 @@ namespace OpenMediaBridge.Services
             catch { }
         }
 
+        public async Task SeekAsync(TimeSpan position)
+        {
+            var session = _currentSession;
+            if (session == null) return;
+            if (position < TimeSpan.Zero) position = TimeSpan.Zero;
+
+            try
+            {
+                // SMTC wants the position in 100 ns ticks, which is exactly what
+                // TimeSpan.Ticks is. Players that can't seek just return false.
+                await session.TryChangePlaybackPositionAsync(position.Ticks);
+            }
+            catch { }
+        }
+
         public void Dispose()
         {
             // deregister events

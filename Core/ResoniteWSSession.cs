@@ -254,9 +254,45 @@ namespace OpenMediaBridge
                 // Help
                 case "help":
                 case "h":
-                    SendText("commands:play,pause,next,prev,stop,?");
+                    SendText("commands:play,pause,next,prev,stop,seek:<ms|0-1>,?");
+                    break;
+
+                default:
+                    if (msgLower.StartsWith("seek:"))
+                        HandleSeek(msg.Substring(5).Trim());
                     break;
             }
+        }
+
+        // seek:<value> — jump to an absolute position. A decimal value in [0,1]
+        // is treated as a fraction of the track duration (so clients using
+        // prog: can echo it straight back); anything else is absolute
+        // milliseconds (matching pos:/dur:). Examples: seek:0.5, seek:112000.
+        private void HandleSeek(string value)
+        {
+            if (WMService == null || !WMService.HasActiveSession) return;
+            if (!double.TryParse(value, System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out var num))
+                return;
+
+            var durationMs = WMService.GetTimelineInfo().Duration.TotalMilliseconds;
+
+            double targetMs;
+            if (value.Contains('.') && num >= 0 && num <= 1)
+            {
+                // Fraction of the track — needs a known duration to scale against.
+                if (durationMs <= 0) return;
+                targetMs = num * durationMs;
+            }
+            else
+            {
+                targetMs = num;
+            }
+
+            if (targetMs < 0) targetMs = 0;
+            if (durationMs > 0 && targetMs > durationMs) targetMs = durationMs;
+
+            _ = WMService.SeekAsync(TimeSpan.FromMilliseconds(targetMs));
         }
 
         public override void OnWsDisconnected()

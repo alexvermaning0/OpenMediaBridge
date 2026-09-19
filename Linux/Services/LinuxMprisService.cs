@@ -313,6 +313,15 @@ namespace OpenMediaBridge.Services
             if (cmd != null) await RunPlayerctlAsync(WithIgnored(cmd));
         }
 
+        public async Task SeekAsync(TimeSpan position)
+        {
+            if (position < TimeSpan.Zero) position = TimeSpan.Zero;
+            // playerctl takes an absolute position in (fractional) seconds.
+            var seconds = position.TotalSeconds.ToString(
+                "0.###", System.Globalization.CultureInfo.InvariantCulture);
+            await RunPlayerctlAsync(WithIgnored("position", seconds));
+        }
+
         private bool _disposed;
         public void Dispose()
         {

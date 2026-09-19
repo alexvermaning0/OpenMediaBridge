@@ -368,6 +368,21 @@ end run";
             }
         }
 
+        public async Task SeekAsync(TimeSpan position)
+        {
+            if (string.IsNullOrEmpty(CurrentPlayerName))
+                return;
+            if (position < TimeSpan.Zero) position = TimeSpan.Zero;
+
+            // AppleScript `player position` is in (fractional) seconds.
+            var seconds = position.TotalSeconds.ToString(
+                "0.###", System.Globalization.CultureInfo.InvariantCulture);
+            _ = await RunAppleScriptAsync($@"
+tell application ""{CurrentPlayerName}""
+    set player position to {seconds}
+end tell");
+        }
+
         private string GetPlayScript()
         {
             return $@"
