@@ -216,7 +216,12 @@ namespace OpenMediaBridge.Services
                 else
                 {
                     long difference = smtcPosWithOffset - _lastKnownPosition;
-                    if (difference > 500 || (Math.Abs(difference) > 1500 && _lyricsFetcher.NeedsNewSong(title, artist)))
+                    // What the lyric clock is currently displaying, so we can tell
+                    // a real jump apart from normal poll-to-poll advancement.
+                    long shownPosition = _lastKnownPosition + (long)(DateTime.UtcNow - _lastPositionUpdateTime).TotalMilliseconds;
+                    if (difference > 500                                              // player ran ahead (advance or forward seek)
+                        || (Math.Abs(difference) > 1500 && _lyricsFetcher.NeedsNewSong(title, artist)) // song change reset the clock
+                        || smtcPosWithOffset < shownPosition - 1000)                  // player jumped back (a backward seek/scrub)
                     {
                         _lastKnownPosition = smtcPosWithOffset;
                         _lastPositionUpdateTime = DateTime.UtcNow;
