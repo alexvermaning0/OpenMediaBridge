@@ -128,8 +128,9 @@ hot-reloads on save:
 | `showWhenIdle` | `false` | Keep a dimmed icon in the bar when nothing is playing |
 | `scrollAction` | `track` | `track` scrolls prev/next, `offset` nudges the lyric offset by 50 ms |
 
-On a vertical bar the label is dropped and only the icon shows, matching the
-other Omarchy widgets.
+On a vertical bar the icon sits above the lyric, which is rotated to read down
+the bar. `maxWidth` then caps how far the line runs along the bar before it
+elides. Set `display` to `none` for an icon-only vertical bar.
 
 ## Hyprland keybindings
 

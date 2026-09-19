@@ -69,8 +69,10 @@ BarWidget {
   }
 
   visible: live || showWhenIdle || bridgeMissing
-  implicitWidth: visible ? content.implicitWidth + Style.space(14) : 0
-  implicitHeight: barSize
+  // Horizontal bars grow in width and keep the bar's thickness for height;
+  // vertical bars are the mirror — fixed thickness (barSize) wide, growing tall.
+  implicitWidth: root.vertical ? barSize : (visible ? content.implicitWidth + Style.space(14) : 0)
+  implicitHeight: root.vertical ? (visible ? content.implicitHeight + Style.space(14) : 0) : barSize
 
   // The service is mounted from the manifest, not by us, so the connection
   // settings live on the widget's shell.json entry and are pushed onto it.
@@ -124,14 +126,20 @@ BarWidget {
     function refreshLyrics(): void { if (root.bridge) root.bridge.sendLyrics("refresh") }
   }
 
-  Row {
+  // A horizontal bar lays the glyph and label out in a row; a vertical bar
+  // stacks them in a column with the label rotated to read down the bar. A Grid
+  // switches between the two without duplicating the children.
+  Grid {
     id: content
     anchors.centerIn: parent
+    rows: root.vertical ? 2 : 1
+    columns: root.vertical ? 1 : 2
     spacing: Style.space(6)
+    horizontalItemAlignment: Grid.AlignHCenter
+    verticalItemAlignment: Grid.AlignVCenter
 
     Text {
       id: glyph
-      anchors.verticalCenter: parent.verticalCenter
       text: root.bridgeMissing ? "󰀪" : !root.live ? "󰝛" : root.bridge.playing ? "󰏤" : "󰐊"
       color: root.live && root.bridge.playing
         ? root.bar.barForeground
@@ -146,16 +154,21 @@ BarWidget {
 
     Item {
       id: labelClip
-      anchors.verticalCenter: parent.verticalCenter
-      width: Math.min(root.maxLabelWidth, label.implicitWidth)
-      height: glyph.height
+      // Horizontal: as wide as the (capped) line, one glyph tall. Vertical: the
+      // axes swap — one line-height thick, as tall as the capped line — and the
+      // label is rotated 90° into it. maxLabelWidth caps the run either way.
+      width: root.vertical ? label.implicitHeight : Math.min(root.maxLabelWidth, label.implicitWidth)
+      height: root.vertical ? Math.min(root.maxLabelWidth, label.implicitWidth) : glyph.height
       clip: true
-      visible: !root.vertical && root.labelText !== ""
+      visible: root.labelText !== ""
 
       Text {
         id: label
-        width: labelClip.width
-        anchors.verticalCenter: parent.verticalCenter
+        anchors.centerIn: parent
+        // The text lays out along the clip's long axis; rotation maps that axis
+        // onto the bar. Elide trims the far end when a line runs past the cap.
+        width: root.vertical ? labelClip.height : labelClip.width
+        rotation: root.vertical ? 90 : 0
         color: root.bar.barForeground
         font.family: root.bar.fontFamily
         font.pixelSize: Style.font.body
