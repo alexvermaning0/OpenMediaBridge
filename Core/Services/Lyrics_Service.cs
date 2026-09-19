@@ -53,6 +53,14 @@ namespace OpenMediaBridge.Services
         private string _translationApiKey = "";
         private bool _showLanguageSelect = false;
 
+        // full-lyrics karaoke view (lyricsview:) — rich-text colors and the last
+        // rendered block, so it's only re-sent when it actually changes.
+        private string _viewPastColor = "#808080";
+        private string _viewCurrentColor = "#FFE100";
+        private string _viewUpcomingColor = "#FFFFFF";
+        private long _lastSimulatedPosition = 0;
+        private string _lastViewText = null;
+
         private static readonly (string Code, string Name, ConsoleKey Key, string KeyLabel)[] _languageOptions =
         {
             ("en", "English",    ConsoleKey.E,  "E"),
@@ -119,6 +127,10 @@ namespace OpenMediaBridge.Services
             _translationTargetLang = _wmService?.Config?.TranslationTargetLang ?? "en";
             _libreTranslateUrl = _wmService?.Config?.LibreTranslateUrl ?? "https://libretranslate.com";
             _translationApiKey = _wmService?.Config?.TranslationApiKey ?? "";
+
+            _viewPastColor = _wmService?.Config?.LyricsViewPastColor ?? "#808080";
+            _viewCurrentColor = _wmService?.Config?.LyricsViewCurrentColor ?? "#FFE100";
+            _viewUpcomingColor = _wmService?.Config?.LyricsViewUpcomingColor ?? "#FFFFFF";
 
             // Hook up the fetcher logging to our debug log
             LyricsFetcher.SetLogCallback(DebugLog);
@@ -235,6 +247,10 @@ namespace OpenMediaBridge.Services
                 _lastKnownPosition = smtcPosWithOffset;
                 simulatedPosition = _lastKnownPosition;
             }
+
+            // Remember the clock the display is running on, so getlyricsview and
+            // the karaoke-view push below can highlight the same current line.
+            _lastSimulatedPosition = simulatedPosition;
 
             // new song fetch?
             if (_lyricsFetcher.NeedsNewSong(title, artist))
@@ -387,6 +403,16 @@ namespace OpenMediaBridge.Services
                 // Send progress update even if lyric hasn't changed (every 1 second, only when playing)
                 OnLyricUpdate?.Invoke(null, progress); // null = don't update lyric, just progress
                 _lastBroadcastTime = DateTime.UtcNow;
+            }
+
+            // Push the full-lyrics karaoke view whenever its rendered form changes
+            // (line advanced, seek, song change, translation toggle). The string
+            // compare keeps it from resending the block every tick.
+            string view = GetLyricsView();
+            if (view != _lastViewText)
+            {
+                _lastViewText = view;
+                OnStatusChanged?.Invoke("lyricsview", view);
             }
 
             // update console display
@@ -905,6 +931,37 @@ namespace OpenMediaBridge.Services
             if (_translationEnabled && HasCurrentTranslation && _translatedLines.Count > 0)
                 return string.Join("\n", _translatedLines.Select(l => l.Text));
             return _lyricsFetcher.GetFullLyricsText();
+        }
+
+        // The whole song as one rich-text block with the current line highlighted
+        // (bold + current color), sung lines dimmed, and upcoming lines in the
+        // upcoming color — ready to drop straight into a Resonite/TMP text field.
+        // Uses the translated lines when translation is active, matching the live
+        // lyric: feed. Returns "" when there are no synced lyrics.
+        public string GetLyricsView()
+        {
+            var lines = (_translationEnabled && HasCurrentTranslation && _translatedLines != null && _translatedLines.Count > 0)
+                ? _translatedLines
+                : _lyricsFetcher.GetCurrentRawLines();
+            if (lines == null || lines.Count == 0)
+                return "";
+
+            long pos = _lastSimulatedPosition;
+            int cur = lines.FindLastIndex(l => l.Time <= pos);
+
+            var sb = new System.Text.StringBuilder();
+            for (int i = 0; i < lines.Count; i++)
+            {
+                if (i > 0) sb.Append('\n');
+                var text = lines[i].Text ?? "";
+                if (i == cur)
+                    sb.Append("<b><color=").Append(_viewCurrentColor).Append('>').Append(text).Append("</color></b>");
+                else if (i < cur)
+                    sb.Append("<color=").Append(_viewPastColor).Append('>').Append(text).Append("</color>");
+                else
+                    sb.Append("<color=").Append(_viewUpcomingColor).Append('>').Append(text).Append("</color>");
+            }
+            return sb.ToString();
         }
 
         /// <summary>

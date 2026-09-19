@@ -11,6 +11,11 @@ namespace OpenMediaBridge.Services
         {
             _lyricsService = lyricsService;
             _lyricsService.OnLyricUpdate += SendLyric;
+            // Live status pushes (lyricsrc, wordsync, translate, offset, and the
+            // lyricsview karaoke block) are raised by the service as they change;
+            // without this subscription they'd only reach a client on connect or
+            // as an echo of its own command.
+            _lyricsService.OnStatusChanged += SendStatus;
         }
 
         private void SendLyric(string lyric, double progress)
@@ -21,6 +26,11 @@ namespace OpenMediaBridge.Services
                 SendText($"lyric:{lyric}");
             }
             SendText($"prog:{progress:F3}");
+        }
+
+        private void SendStatus(string key, string value)
+        {
+            SendText($"{key}:{value}");
         }
 
         public override void OnWsConnected(HttpRequest request)
@@ -35,6 +45,12 @@ namespace OpenMediaBridge.Services
             SendText($"offset:{_lyricsService.CurrentOffset}");
             SendText($"translate:{_lyricsService.TranslationEnabled.ToString().ToLower()}");
             SendText($"translatelang:{_lyricsService.TranslationTargetLang}");
+
+            // Prime the karaoke view so a client that connects mid-song gets the
+            // highlighted block immediately, not only on the next line change.
+            var view = _lyricsService.GetLyricsView();
+            if (!string.IsNullOrEmpty(view))
+                SendText($"lyricsview:{view}");
         }
 
         public override void OnWsDisconnected()
@@ -42,6 +58,11 @@ namespace OpenMediaBridge.Services
             base.OnWsDisconnected();
             LyricsWSServer.ConnectedCount = Math.Max(0, LyricsWSServer.ConnectedCount - 1);
             Console.WriteLine($"[WebSocket] Lyrics clients connected: {LyricsWSServer.ConnectedCount}");
+
+            // Unsubscribe so a disconnected session isn't kept alive by the
+            // service's event and doesn't try to send on a closed socket.
+            _lyricsService.OnLyricUpdate -= SendLyric;
+            _lyricsService.OnStatusChanged -= SendStatus;
         }
 
         public override void OnWsReceived(byte[] buffer, long offset, long size)
@@ -165,6 +186,13 @@ namespace OpenMediaBridge.Services
                 return;
             }
 
+            // Full lyrics as a highlighted rich-text block (karaoke view)
+            if (msgLower == "getlyricsview")
+            {
+                SendText($"lyricsview:{_lyricsService.GetLyricsView()}");
+                return;
+            }
+
             // Status request
             if (msgLower == "status" || msgLower == "?")
             {
@@ -191,7 +219,7 @@ namespace OpenMediaBridge.Services
             // Help
             if (msgLower == "help" || msgLower == "h")
             {
-                SendText("commands:t,w,o,c,p,n,r,x,+,-,s,?,getfulllyrics");
+                SendText("commands:t,w,o,c,p,n,r,x,+,-,s,?,getfulllyrics,getlyricsview");
                 return;
             }
         }

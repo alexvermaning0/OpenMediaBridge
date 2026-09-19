@@ -59,5 +59,18 @@ namespace OpenMediaBridge
 
         [JsonPropertyName("translation_api_key")]
         public string TranslationApiKey { get; set; } = "";
+
+        // Colors used to render the full-lyrics karaoke view (lyricsview:), as
+        // rich-text markup understood by Resonite/TMP overlays. Past = lines
+        // already sung, current = the active line (also bolded), upcoming = the
+        // rest.
+        [JsonPropertyName("lyricsview_past_color")]
+        public string LyricsViewPastColor { get; set; } = "#808080";
+
+        [JsonPropertyName("lyricsview_current_color")]
+        public string LyricsViewCurrentColor { get; set; } = "#FFE100";
+
+        [JsonPropertyName("lyricsview_upcoming_color")]
+        public string LyricsViewUpcomingColor { get; set; } = "#FFFFFF";
     }
 }

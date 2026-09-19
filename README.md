@@ -93,6 +93,9 @@ Configuration is stored in `config.json`:
 | `translation_target_lang` | Target language code (e.g. `en`, `nl`, `ja`) |
 | `translation_libretranslate_url` | LibreTranslate-compatible API endpoint |
 | `translation_api_key` | API key for the LibreTranslate instance, if required |
+| `lyricsview_past_color` | Color of already-sung lines in `lyricsview:` (default `#808080`) |
+| `lyricsview_current_color` | Color of the current line in `lyricsview:` (default `#FFE100`) |
+| `lyricsview_upcoming_color` | Color of upcoming lines in `lyricsview:` (default `#FFFFFF`) |
 
 ---
 
@@ -178,6 +181,13 @@ Dedicated connection for lyrics display. Receives high-frequency lyric updates.
 | `offset:<ms>` | Current offset | `offset:0` |
 | `translate:<bool>` | Translation enabled | `translate:true` |
 | `translatelang:<code>` | Translation target language | `translatelang:en` |
+| `lyricsview:<markup>` | Whole song as one rich-text block, current line highlighted; pushed on connect and whenever the highlight moves (line change, seek, song change, translation toggle) | `lyricsview:<color=#808080>line1</color>\n<b><color=#FFE100>line2</color></b>\n<color=#FFFFFF>line3</color>` |
+
+> `lyricsview:` renders the full lyrics with the current line bolded and
+> colored, sung lines dimmed, and the rest in the upcoming color — a ready-made
+> karaoke view for a Resonite/OBS text field, no client-side line matching
+> needed. Colors are set by the `lyricsview_*_color` config keys. It's empty
+> when the track has no synced lyrics.
 
 ### Commands (Client → Server)
 
@@ -200,7 +210,8 @@ Dedicated connection for lyrics display. Receives high-frequency lyric updates.
 | `offset:-500` | | Decrease offset by 500ms |
 | `offset:save` | `s` | Save offset to config |
 | `status` | `?` | Resend current lyrics state |
-| `getfulllyrics` | | Get full lyrics text |
+| `getfulllyrics` | | Get full lyrics text (plain) |
+| `getlyricsview` | | Get the highlighted full-lyrics block (`lyricsview:`) |
 | `help` | `h` | List commands |
 
 ---
