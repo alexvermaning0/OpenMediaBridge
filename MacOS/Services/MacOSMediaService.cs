@@ -74,40 +74,54 @@ namespace OpenMediaBridge.Services
             var songKey = $"{playerInfo.Title}|{playerInfo.Artist}";
             bool isPlaying = playerInfo.IsPlaying;
 
+            // Always refresh timeline/playback so pos: keeps moving even while the
+            // same song plays. The song/state comparison below only decides whether
+            // to re-push metadata and playback state, not whether to update these.
+            bool songChanged;
+            bool playbackChanged;
             lock (_updateLock)
             {
-                if (songKey == _lastProcessedSong && isPlaying == _lastIsPlaying)
-                    return;
+                _currentPlaybackInfo = new MediaPlaybackInfo
+                {
+                    IsPlaying = isPlaying
+                };
+                _currentTimelineInfo = new MediaTimelineInfo
+                {
+                    Position = TimeSpan.FromMilliseconds(playerInfo.Position),
+                    Duration = TimeSpan.FromMilliseconds(playerInfo.Duration)
+                };
 
+                songChanged = songKey != _lastProcessedSong;
+                playbackChanged = isPlaying != _lastIsPlaying;
                 _lastProcessedSong = songKey;
                 _lastIsPlaying = isPlaying;
             }
 
-            CurrentPlayerName = playerInfo.PlayerName;
-            CurrentMediaProperties = new MediaProperties
+            if (songChanged)
             {
-                Title = playerInfo.Title,
-                Artist = playerInfo.Artist,
-                AlbumTitle = playerInfo.Album
-            };
+                CurrentPlayerName = playerInfo.PlayerName;
+                CurrentMediaProperties = new MediaProperties
+                {
+                    Title = playerInfo.Title,
+                    Artist = playerInfo.Artist,
+                    AlbumTitle = playerInfo.Album
+                };
 
-            _currentPlaybackInfo = new MediaPlaybackInfo
+                // Push metadata now; fetch cover art in the background (network,
+                // slow) and re-push when it resolves, rather than stalling the
+                // poll on it.
+                var mediaForCover = CurrentMediaProperties;
+                WSSession.SendMediaUpdate();
+                WSSession.SendPlaybackUpdate();
+                _ = CoverServer.UpdateCoverAsync(mediaForCover).ContinueWith(
+                    _ => WSSession.SendMediaUpdate(), TaskScheduler.Default);
+            }
+            else if (playbackChanged)
             {
-                IsPlaying = isPlaying
-            };
-
-            _currentTimelineInfo = new MediaTimelineInfo
-            {
-                Position = TimeSpan.FromMilliseconds(playerInfo.Position),
-                Duration = TimeSpan.FromMilliseconds(playerInfo.Duration)
-            };
-
-            // Push metadata now; fetch cover art in the background (network, slow)
-            // and re-push when it resolves, rather than stalling the poll on it.
-            var mediaForCover = CurrentMediaProperties;
-            WSSession.SendMediaUpdate();
-            _ = CoverServer.UpdateCoverAsync(mediaForCover).ContinueWith(
-                _ => WSSession.SendMediaUpdate(), TaskScheduler.Default);
+                // Same track, play/pause toggled — push updated status so clients
+                // don't stay stuck on the state from connect time.
+                WSSession.SendPlaybackUpdate();
+            }
         }
 
         private async Task<PlayerInfo?> GetCurrentPlayerInfoAsync()
