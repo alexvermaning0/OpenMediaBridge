@@ -47,11 +47,13 @@ namespace OpenMediaBridge.Services
             SendText($"translatelang:{_lyricsService.TranslationTargetLang}");
             SendText($"viewcolors:{_lyricsService.ViewColors}");
 
-            // Prime the karaoke view so a client that connects mid-song gets the
-            // highlighted block immediately, not only on the next line change.
+            // Prime the karaoke view (and its current line index) so a client
+            // that connects mid-song gets both immediately, not only on the next
+            // line change.
             var view = _lyricsService.GetLyricsView();
             if (!string.IsNullOrEmpty(view))
                 SendText($"lyricsview:{view}");
+            SendText($"lyricsindex:{_lyricsService.GetCurrentLineIndex()}");
         }
 
         public override void OnWsDisconnected()
@@ -194,6 +196,13 @@ namespace OpenMediaBridge.Services
                 return;
             }
 
+            // Current line index within the karaoke view (-1 = no current line)
+            if (msgLower == "getlyricsindex")
+            {
+                SendText($"lyricsindex:{_lyricsService.GetCurrentLineIndex()}");
+                return;
+            }
+
             // Status request
             if (msgLower == "status" || msgLower == "?")
             {
@@ -235,7 +244,7 @@ namespace OpenMediaBridge.Services
             // Help
             if (msgLower == "help" || msgLower == "h")
             {
-                SendText("commands:t,w,o,c,p,n,r,x,+,-,s,?,getfulllyrics,getlyricsview,viewcolors:<past>,<current>,<upcoming>");
+                SendText("commands:t,w,o,c,p,n,r,x,+,-,s,?,getfulllyrics,getlyricsview,getlyricsindex,viewcolors:<past>,<current>,<upcoming>");
                 return;
             }
         }

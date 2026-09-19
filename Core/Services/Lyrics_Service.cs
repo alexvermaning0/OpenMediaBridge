@@ -60,6 +60,7 @@ namespace OpenMediaBridge.Services
         private string _viewUpcomingColor = "#FFFFFF";
         private long _lastSimulatedPosition = 0;
         private string _lastViewText = null;
+        private int _lastViewIndex = int.MinValue;
 
         private static readonly (string Code, string Name, ConsoleKey Key, string KeyLabel)[] _languageOptions =
         {
@@ -413,6 +414,15 @@ namespace OpenMediaBridge.Services
             {
                 _lastViewText = view;
                 OnStatusChanged?.Invoke("lyricsview", view);
+            }
+
+            // Current line index, for clients that highlight/scroll by index
+            // instead of parsing the block (-1 = no current line).
+            int viewIndex = GetCurrentLineIndex();
+            if (viewIndex != _lastViewIndex)
+            {
+                _lastViewIndex = viewIndex;
+                OnStatusChanged?.Invoke("lyricsindex", viewIndex.ToString());
             }
 
             // update console display
@@ -978,11 +988,26 @@ namespace OpenMediaBridge.Services
         // upcoming color — ready to drop straight into a Resonite/TMP text field.
         // Uses the translated lines when translation is active, matching the live
         // lyric: feed. Returns "" when there are no synced lyrics.
-        public string GetLyricsView()
-        {
-            var lines = (_translationEnabled && HasCurrentTranslation && _translatedLines != null && _translatedLines.Count > 0)
+        // The lines lyricsview/lyricsindex are rendered from: the translated set
+        // when translation is active and ready, otherwise the original lyrics.
+        private List<LyricsLine> CurrentViewLines() =>
+            (_translationEnabled && HasCurrentTranslation && _translatedLines != null && _translatedLines.Count > 0)
                 ? _translatedLines
                 : _lyricsFetcher.GetCurrentRawLines();
+
+        // 0-based index of the current line within the lyricsview block, or -1
+        // when there are no synced lyrics or the position is before the first
+        // line. Matches the highlighted (bold) line in lyricsview.
+        public int GetCurrentLineIndex()
+        {
+            var lines = CurrentViewLines();
+            if (lines == null || lines.Count == 0) return -1;
+            return lines.FindLastIndex(l => l.Time <= _lastSimulatedPosition);
+        }
+
+        public string GetLyricsView()
+        {
+            var lines = CurrentViewLines();
             if (lines == null || lines.Count == 0)
                 // No synced lyrics for this track — show a placeholder rather than
                 // a blank panel, styled like an upcoming line.

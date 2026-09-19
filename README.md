@@ -183,6 +183,7 @@ Dedicated connection for lyrics display. Receives high-frequency lyric updates.
 | `translatelang:<code>` | Translation target language | `translatelang:en` |
 | `lyricsview:<markup>` | Whole song as one rich-text block, current line highlighted; pushed on connect and whenever the highlight moves (line change, seek, song change, translation toggle) | `lyricsview:<color=#808080>line1</color>\n<b><color=#FFE100>line2</color></b>\n<color=#FFFFFF>line3</color>` |
 | `viewcolors:<past>,<current>,<upcoming>` | Active `lyricsview` colors; sent on connect and after a change | `viewcolors:#808080,#FFE100,#FFFFFF` |
+| `lyricsindex:<i>` | 0-based index of the current line in `lyricsview` (the bold line); `-1` when there's no current line or no lyrics. Pushed on connect and whenever the line changes (line advance, seek, song change) | `lyricsindex:4` |
 
 > `lyricsview:` renders the full lyrics with the current line bolded and
 > colored, sung lines dimmed, and the rest in the upcoming color — a ready-made
@@ -213,6 +214,7 @@ Dedicated connection for lyrics display. Receives high-frequency lyric updates.
 | `status` | `?` | Resend current lyrics state |
 | `getfulllyrics` | | Get full lyrics text (plain) |
 | `getlyricsview` | | Get the highlighted full-lyrics block (`lyricsview:`) |
+| `getlyricsindex` | | Get the current line index (`lyricsindex:`) |
 | `viewcolors:<past>,<current>,<upcoming>` | | Theme the `lyricsview` colors at runtime (e.g. `viewcolors:#808080,#FFE100,#FFFFFF`); empty fields keep the current color |
 | `help` | `h` | List commands |
 
