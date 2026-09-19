@@ -933,6 +933,26 @@ namespace OpenMediaBridge.Services
             return _lyricsFetcher.GetFullLyricsText();
         }
 
+        // Current lyricsview colors as "past,current,upcoming", for clients to
+        // read the active theme (sent on connect and after a change).
+        public string ViewColors => $"{_viewPastColor},{_viewCurrentColor},{_viewUpcomingColor}";
+
+        // Set the lyricsview colors at runtime so a client can theme the karaoke
+        // block to match its overlay. Empty fields keep the current value. Colors
+        // are shared across all lyrics clients (last writer wins). The updated
+        // block is re-rendered and pushed immediately.
+        public void SetViewColors(string past, string current, string upcoming)
+        {
+            if (!string.IsNullOrWhiteSpace(past)) _viewPastColor = past.Trim();
+            if (!string.IsNullOrWhiteSpace(current)) _viewCurrentColor = current.Trim();
+            if (!string.IsNullOrWhiteSpace(upcoming)) _viewUpcomingColor = upcoming.Trim();
+
+            var view = GetLyricsView();
+            _lastViewText = view; // dedupe against the tick's own push
+            OnStatusChanged?.Invoke("lyricsview", view);
+            OnStatusChanged?.Invoke("viewcolors", ViewColors);
+        }
+
         // The whole song as one rich-text block with the current line highlighted
         // (bold + current color), sung lines dimmed, and upcoming lines in the
         // upcoming color — ready to drop straight into a Resonite/TMP text field.

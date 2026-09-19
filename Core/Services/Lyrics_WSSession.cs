@@ -45,6 +45,7 @@ namespace OpenMediaBridge.Services
             SendText($"offset:{_lyricsService.CurrentOffset}");
             SendText($"translate:{_lyricsService.TranslationEnabled.ToString().ToLower()}");
             SendText($"translatelang:{_lyricsService.TranslationTargetLang}");
+            SendText($"viewcolors:{_lyricsService.ViewColors}");
 
             // Prime the karaoke view so a client that connects mid-song gets the
             // highlighted block immediately, not only on the next line change.
@@ -204,6 +205,21 @@ namespace OpenMediaBridge.Services
                 SendText($"plain:{_lyricsService.PlainFallbackEnabled.ToString().ToLower()}");
                 SendText($"translate:{_lyricsService.TranslationEnabled.ToString().ToLower()}");
                 SendText($"translatelang:{_lyricsService.TranslationTargetLang}");
+                SendText($"viewcolors:{_lyricsService.ViewColors}");
+                return;
+            }
+
+            // Theme the karaoke view: viewcolors:<past>,<current>,<upcoming>.
+            // Empty fields keep the current color. Use the original (not lowered)
+            // string so hex/named colors aren't mangled. SetViewColors re-pushes
+            // lyricsview and viewcolors to every lyrics client.
+            if (msgLower.StartsWith("viewcolors:"))
+            {
+                var parts = msg.Substring("viewcolors:".Length).Split(',');
+                _lyricsService.SetViewColors(
+                    parts.Length > 0 ? parts[0] : "",
+                    parts.Length > 1 ? parts[1] : "",
+                    parts.Length > 2 ? parts[2] : "");
                 return;
             }
 
@@ -219,7 +235,7 @@ namespace OpenMediaBridge.Services
             // Help
             if (msgLower == "help" || msgLower == "h")
             {
-                SendText("commands:t,w,o,c,p,n,r,x,+,-,s,?,getfulllyrics,getlyricsview");
+                SendText("commands:t,w,o,c,p,n,r,x,+,-,s,?,getfulllyrics,getlyricsview,viewcolors:<past>,<current>,<upcoming>");
                 return;
             }
         }
