@@ -61,6 +61,7 @@ namespace OpenMediaBridge.Services
         private long _lastSimulatedPosition = 0;
         private string _lastViewText = null;
         private int _lastViewIndex = int.MinValue;
+        private string _lastSrcNum = null;
 
         private static readonly (string Code, string Name, ConsoleKey Key, string KeyLabel)[] _languageOptions =
         {
@@ -423,6 +424,15 @@ namespace OpenMediaBridge.Services
             {
                 _lastViewIndex = viewIndex;
                 OnStatusChanged?.Invoke("lyricsindex", viewIndex.ToString());
+            }
+
+            // Available-source counter (current/total), same value the console
+            // shows; changes on song change and source cycling.
+            string srcNum = GetSourceNum();
+            if (srcNum != _lastSrcNum)
+            {
+                _lastSrcNum = srcNum;
+                OnStatusChanged?.Invoke("lyricsrcnum", srcNum);
             }
 
             // update console display
@@ -988,6 +998,15 @@ namespace OpenMediaBridge.Services
         // upcoming color — ready to drop straight into a Resonite/TMP text field.
         // Uses the translated lines when translation is active, matching the live
         // lyric: feed. Returns "" when there are no synced lyrics.
+        // Current lyrics source position as "<current>/<total>", 1-based like the
+        // console's (n/N) indicator, or "0/0" when no sources are available.
+        public string GetSourceNum()
+        {
+            int total = _lyricsFetcher.TotalResults;
+            int cur = total > 0 ? _lyricsFetcher.CurrentIndex + 1 : 0;
+            return $"{cur}/{total}";
+        }
+
         // The lines lyricsview/lyricsindex are rendered from: the translated set
         // when translation is active and ready, otherwise the original lyrics.
         private List<LyricsLine> CurrentViewLines() =>

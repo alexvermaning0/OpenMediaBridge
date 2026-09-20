@@ -181,6 +181,7 @@ Dedicated connection for lyrics display. Receives high-frequency lyric updates.
 | `cjk:<bool>` | CJK lyrics filter | `cjk:true` |
 | `plain:<bool>` | Plain (unsynced) lyrics fallback | `plain:false` |
 | `lyricsrc:<source>` | Lyrics source | `lyricsrc:lrclib` |
+| `lyricsrcnum:<cur>/<total>` | Which of the available lyrics sources is active (1-based), and how many were found; `0/0` when none. Same value as the console's `(n/N)` | `lyricsrcnum:2/5` |
 | `offset:<ms>` | Current offset | `offset:0` |
 | `translate:<bool>` | Translation enabled | `translate:true` |
 | `translatelang:<code>` | Translation target language | `translatelang:en` |

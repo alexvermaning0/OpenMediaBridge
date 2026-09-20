@@ -46,6 +46,7 @@ namespace OpenMediaBridge.Services
             SendText($"cjk:{_lyricsService.CjkFilterEnabled.ToString().ToLower()}");
             SendText($"plain:{_lyricsService.PlainFallbackEnabled.ToString().ToLower()}");
             SendText($"lyricsrc:{_lyricsService.CurrentSource}");
+            SendText($"lyricsrcnum:{_lyricsService.GetSourceNum()}");
             SendText($"offset:{_lyricsService.CurrentOffset}");
             SendText($"translate:{_lyricsService.TranslationEnabled.ToString().ToLower()}");
             SendText($"translatelang:{_lyricsService.TranslationTargetLang}");
@@ -207,6 +208,7 @@ namespace OpenMediaBridge.Services
             {
                 SendText($"wordsync:{_lyricsService.WordSyncEnabled.ToString().ToLower()}");
                 SendText($"lyricsrc:{_lyricsService.CurrentSource}");
+                SendText($"lyricsrcnum:{_lyricsService.GetSourceNum()}");
                 SendText($"offset:{_lyricsService.CurrentOffset}");
                 SendText($"offline:{_lyricsService.OfflineEnabled.ToString().ToLower()}");
                 SendText($"cjk:{_lyricsService.CjkFilterEnabled.ToString().ToLower()}");
