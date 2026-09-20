@@ -331,6 +331,15 @@ Build with Android Studio or `cd Android && ./gradlew assembleDebug`. Requires n
 
 ## Resonite Integration
 
+### Example Item
+
+A ready-made in-world item you can drop in and use. Copy the record URI below and
+paste it into Resonite (e.g. paste into the world or your inventory) to spawn it:
+
+```
+resrec:///U-1OC9DzBh8IC/R-687E9672AB3D0CA056C6973F5C14460E7759187E13C9E0C14595F3A6E9E2F626
+```
+
 ### Parsing Messages
 
 Messages use `key:value` format. In ProtoFlux:
