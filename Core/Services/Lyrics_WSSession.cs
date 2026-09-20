@@ -139,45 +139,40 @@ namespace OpenMediaBridge.Services
                 return;
             }
 
-            // Offset adjustment
-            if (msgLower == "offset:+50" || msgLower == "+")
+            // Offset adjustment. Bare +/- nudge by 50; save persists to config.
+            if (msgLower == "+")
             {
                 _lyricsService.AdjustOffset(50);
                 SendText($"offset:{_lyricsService.CurrentOffset}");
                 return;
             }
-            if (msgLower == "offset:-50" || msgLower == "-")
+            if (msgLower == "-")
             {
                 _lyricsService.AdjustOffset(-50);
                 SendText($"offset:{_lyricsService.CurrentOffset}");
-                return;
-            }
-            if (msgLower == "offset:+500")
-            {
-                _lyricsService.AdjustOffset(500);
-                SendText($"offset:{_lyricsService.CurrentOffset}");
-                return;
-            }
-            if (msgLower == "offset:-500")
-            {
-                _lyricsService.AdjustOffset(-500);
-                SendText($"offset:{_lyricsService.CurrentOffset}");
-                return;
-            }
-            if (msgLower.StartsWith("offset:"))
-            {
-                var offsetStr = msg.Substring(7);
-                if (int.TryParse(offsetStr, out int customOffset))
-                {
-                    _lyricsService.AdjustOffset(customOffset);
-                    SendText($"offset:{_lyricsService.CurrentOffset}");
-                }
                 return;
             }
             if (msgLower == "offset:save" || msgLower == "s")
             {
                 _lyricsService.SaveOffset();
                 SendText("offset:saved");
+                return;
+            }
+            // offset:<n> adjusts by any signed integer of milliseconds, e.g.
+            // offset:+50, offset:-500, offset:120. The legacy fixed steps
+            // (offset:+50/-50/+500/-500) are just specific values of this, so
+            // they keep working; the leading sign is optional. Checked after
+            // "offset:save" so that word isn't parsed as a number.
+            if (msgLower.StartsWith("offset:"))
+            {
+                if (int.TryParse(msg.Substring(7).Trim(),
+                        System.Globalization.NumberStyles.Integer,
+                        System.Globalization.CultureInfo.InvariantCulture,
+                        out int customOffset))
+                {
+                    _lyricsService.AdjustOffset(customOffset);
+                    SendText($"offset:{_lyricsService.CurrentOffset}");
+                }
                 return;
             }
 

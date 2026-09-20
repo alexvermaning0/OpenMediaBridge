@@ -206,10 +206,9 @@ Dedicated connection for lyrics display. Receives high-frequency lyric updates.
 | `next` | `n` | Cycle to next lyrics source |
 | `refresh` | `r` | Re-fetch lyrics |
 | `clearcache` | `x` | Clear cache for current song |
-| `offset:+50` | `+` | Increase offset by 50ms |
-| `offset:-50` | `-` | Decrease offset by 50ms |
-| `offset:+500` | | Increase offset by 500ms |
-| `offset:-500` | | Decrease offset by 500ms |
+| `offset:<ms>` | | Adjust offset by any signed amount of ms (relative), e.g. `offset:+50`, `offset:-500`, `offset:120`; the sign is optional. Legacy fixed steps are just specific values |
+| `+` | | Increase offset by 50ms |
+| `-` | | Decrease offset by 50ms |
 | `offset:save` | `s` | Save offset to config |
 | `status` | `?` | Resend current lyrics state |
 | `getfulllyrics` | | Get full lyrics text (plain) |
