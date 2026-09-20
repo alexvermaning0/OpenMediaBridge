@@ -177,6 +177,9 @@ Dedicated connection for lyrics display. Receives high-frequency lyric updates.
 | `lyric:<text>` | Current lyric line | `lyric:Never gonna let you down` |
 | `prog:<0-1>` | Song progress | `prog:0.523` |
 | `wordsync:<bool>` | Word sync mode | `wordsync:true` |
+| `offline:<bool>` | Offline mode | `offline:false` |
+| `cjk:<bool>` | CJK lyrics filter | `cjk:true` |
+| `plain:<bool>` | Plain (unsynced) lyrics fallback | `plain:false` |
 | `lyricsrc:<source>` | Lyrics source | `lyricsrc:lrclib` |
 | `offset:<ms>` | Current offset | `offset:0` |
 | `translate:<bool>` | Translation enabled | `translate:true` |

@@ -39,8 +39,12 @@ namespace OpenMediaBridge.Services
             LyricsWSServer.ConnectedCount++;
             Console.WriteLine($"[WebSocket] Lyrics clients connected: {LyricsWSServer.ConnectedCount}");
             
-            // Send initial state
+            // Send initial state (mirror the full set the status/? request sends,
+            // so a client has every toggle's value on connect, not only after ?).
             SendText($"wordsync:{_lyricsService.WordSyncEnabled.ToString().ToLower()}");
+            SendText($"offline:{_lyricsService.OfflineEnabled.ToString().ToLower()}");
+            SendText($"cjk:{_lyricsService.CjkFilterEnabled.ToString().ToLower()}");
+            SendText($"plain:{_lyricsService.PlainFallbackEnabled.ToString().ToLower()}");
             SendText($"lyricsrc:{_lyricsService.CurrentSource}");
             SendText($"offset:{_lyricsService.CurrentOffset}");
             SendText($"translate:{_lyricsService.TranslationEnabled.ToString().ToLower()}");
