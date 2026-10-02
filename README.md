@@ -293,6 +293,9 @@ If no cover is found, a default image is used.
 
 ## Discord Integration
 
+<img width="400" height="678" alt="2026-10-02 17-26-50" src="https://github.com/user-attachments/assets/3c43ee8f-de19-4a6c-99fe-6be2f95793f8" />
+
+
 Optional feature to show current lyrics in Discord custom status.
 
 ### Setup
