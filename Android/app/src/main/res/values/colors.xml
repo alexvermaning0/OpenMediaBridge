@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="background">#0A0A0A</color>
+    <color name="surface">#111111</color>
+    <color name="text_primary">#F2FFFFFF</color>
+    <color name="text_secondary">#73FFFFFF</color>
+    <color name="text_dim">#40FFFFFF</color>
+    <color name="lyric_active">#FFFFFFFF</color>
+    <color name="lyric_sung">#61FFFFFF</color>
+    <color name="lyric_upcoming">#73FFFFFF</color>
+    <color name="word_sync_highlight">#FDE68A</color>
+    <color name="progress_track">#2EFFFFFF</color>
+    <color name="progress_fill">#E0FFFFFF</color>
+</resources>

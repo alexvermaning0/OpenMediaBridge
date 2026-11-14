@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "id": "openmediabridge.nowplaying",
+  "name": "OpenMediaBridge",
+  "version": "1.0.0",
+  "author": "OpenMediaBridge",
+  "license": "MIT",
+  "description": "Now playing and synced lyrics from OpenMediaBridge, in the Omarchy bar.",
+  "kinds": [
+    "service",
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "service": "Service.qml",
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "OpenMediaBridge",
+    "description": "Live lyric line with now-playing, transport controls, lyric source and offset tuning.",
+    "category": "Media",
+    "allowMultiple": false,
+    "defaultSection": "center",
+    "defaults": {
+      "host": "127.0.0.1",
+      "mediaPort": 8080,
+      "lyricsPort": 6555,
+      "display": "lyric",
+      "maxWidth": 280,
+      "showWhenIdle": false,
+      "scrollAction": "track"
+    },
+    "schema": [
+      {
+        "key": "host",
+        "type": "string",
+        "label": "Host",
+        "description": "Host running OpenMediaBridge.",
+        "defaultValue": "127.0.0.1"
+      },
+      {
+        "key": "mediaPort",
+        "type": "integer",
+        "label": "Media port",
+        "description": "OpenMediaBridge media WebSocket port.",
+        "min": 1,
+        "max": 65535,
+        "defaultValue": 8080
+      },
+      {
+        "key": "lyricsPort",
+        "type": "integer",
+        "label": "Lyrics port",
+        "description": "OpenMediaBridge lyrics WebSocket port.",
+        "min": 1,
+        "max": 65535,
+        "defaultValue": 6555
+      },
+      {
+        "key": "display",
+        "type": "string",
+        "label": "Bar label",
+        "description": "What the bar shows: \"lyric\" (current line, falling back to the track), \"track\" (title and artist), or \"none\" (icon only).",
+        "defaultValue": "lyric"
+      },
+      {
+        "key": "maxWidth",
+        "type": "integer",
+        "label": "Max label width",
+        "description": "Pixels before the label elides.",
+        "min": 60,
+        "max": 900,
+        "step": 10,
+        "defaultValue": 280
+      },
+      {
+        "key": "showWhenIdle",
+        "type": "boolean",
+        "label": "Show when idle",
+        "description": "Keep a dimmed icon in the bar when OpenMediaBridge is not running or nothing is playing.",
+        "defaultValue": false
+      },
+      {
+        "key": "scrollAction",
+        "type": "string",
+        "label": "Scroll wheel",
+        "description": "\"track\" scrolls previous/next track, \"offset\" nudges the lyric offset by 50 ms.",
+        "defaultValue": "track"
+      }
+    ]
+  }
+}

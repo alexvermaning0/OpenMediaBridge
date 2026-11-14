@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">OpenMediaBridge</string>
+    <string name="notification_listener_label">OpenMediaBridge Media Listener</string>
+    <string name="notification_channel_name">OpenMediaBridge Service</string>
+    <string name="no_lyrics">No lyrics available</string>
+    <string name="searching_lyrics">Searching for lyrics…</string>
+    <string name="permission_required">Notification access required</string>
+</resources>

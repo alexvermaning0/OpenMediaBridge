@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OpenMediaBridge - Full Lyrics</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    width: 1920px;
+    height: 1080px;
+    overflow: hidden;
+    background: #0a0a0a;
+    font-family: 'Figtree', sans-serif;
+  }
+
+  /* Blurred background */
+  #bg {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+  }
+  #bg-img {
+    position: absolute;
+    inset: -10%;
+    width: 120%;
+    height: 120%;
+    background-size: cover;
+    background-position: center;
+    filter: blur(70px) saturate(2.5) brightness(0.5);
+    transition: background-image 2s ease;
+  }
+  #bg-scrim {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.2);
+  }
+
+  /* Main layout */
+  #app {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    padding: 0 80px;
+  }
+
+  /* ── LEFT PANEL ── */
+  #left {
+    width: 520px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 0 44px 0 0;
+    gap: 18px;
+  }
+
+  #art-wrap {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1;
+  }
+  #art-shadow {
+    position: absolute;
+    inset: 10% 5%;
+    bottom: -8%;
+    border-radius: 14px;
+    filter: blur(28px);
+    opacity: 0.65;
+    background-size: cover;
+    background-position: center;
+    transition: background-image 1.5s ease;
+    z-index: 0;
+  }
+  #art {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+    border-radius: 14px;
+    object-fit: cover;
+    display: block;
+  }
+
+  /* Progress */
+  #progress-section {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+  #progress-track {
+    height: 4px;
+    background: rgba(255,255,255,0.18);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  #progress-fill {
+    height: 100%;
+    background: rgba(255,255,255,0.88);
+    width: 0%;
+    transition: width 5s linear;
+    border-radius: 2px;
+  }
+  #time-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.38);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Track info */
+  #track-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  #title {
+    font-size: 19px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.95);
+    letter-spacing: -0.025em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  #subtitle {
+    font-size: 13px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.45);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* ── RIGHT PANEL: lyrics ── */
+  #right {
+    flex: 1;
+    min-width: 0;
+    position: relative;
+    overflow: hidden;
+    height: 100%;
+  }
+
+  #lyrics-scroll {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    padding: 0 64px 0 48px;
+    mask-image: linear-gradient(to bottom, transparent 0%, black 12%, black 80%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 12%, black 80%, transparent 100%);
+  }
+
+  #lyrics-inner {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-top: 35vh;
+    padding-bottom: 65vh;
+    transition: transform 0.65s cubic-bezier(0.32, 1.1, 0.6, 1);
+    will-change: transform;
+  }
+
+  .lyric-line {
+    font-size: clamp(20px, 2.4vw, 38px);
+    font-weight: 800;
+    line-height: 1.28;
+    letter-spacing: -0.03em;
+    color: rgba(255,255,255,0.38);
+    padding: 5px 0;
+    word-break: break-word;
+    transition: color 0.4s ease, transform 0.4s cubic-bezier(0.61, 1, 0.88, 1);
+    transform: scale(0.96);
+    transform-origin: left center;
+    will-change: transform, color;
+    cursor: default;
+  }
+
+  .lyric-line.active {
+    color: rgba(255,255,255,1);
+    transform: scale(1);
+  }
+
+  /* Word sync: yellow highlight within the active line */
+  .lyric-line .ws-active {
+    color: #fde68a;
+    text-shadow: 0 0 20px rgba(253,230,138,0.45);
+  }
+
+  /* No lyrics fallback */
+  #no-lyrics {
+    display: none;
+    position: absolute;
+    inset: 0;
+    align-items: center;
+    padding: 0 64px;
+  }
+  #no-lyrics.show {
+    display: flex;
+  }
+  #no-lyrics span {
+    font-size: 22px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.2);
+    letter-spacing: -0.02em;
+  }
+</style>
+</head>
+<body>
+
+<div id="bg">
+  <div id="bg-img"></div>
+  <div id="bg-scrim"></div>
+</div>
+
+<div id="app">
+  <div id="left">
+    <div id="art-wrap">
+      <div id="art-shadow"></div>
+      <img id="art" src="" alt="">
+    </div>
+    <div id="progress-section">
+      <div id="progress-track">
+        <div id="progress-fill"></div>
+      </div>
+      <div id="time-row">
+        <span id="time-pos">0:00</span>
+        <span id="time-dur">0:00</span>
+      </div>
+    </div>
+    <div id="track-info">
+      <div id="title">—</div>
+      <div id="subtitle">—</div>
+    </div>
+  </div>
+
+  <div id="right">
+    <div id="lyrics-scroll">
+      <div id="lyrics-inner"></div>
+    </div>
+    <div id="no-lyrics"><span>No lyrics available</span></div>
+  </div>
+</div>
+
+<script>
+const WS_MEDIA_URL    = 'ws://localhost:8080';
+const WS_LYRICS_URL   = 'ws://localhost:6555';
+const RECONNECT_DELAY = 3000;
+
+const bgImg       = document.getElementById('bg-img');
+const artEl       = document.getElementById('art');
+const artShadow   = document.getElementById('art-shadow');
+const titleEl     = document.getElementById('title');
+const subtitleEl  = document.getElementById('subtitle');
+const progFill    = document.getElementById('progress-fill');
+const timePos     = document.getElementById('time-pos');
+const timeDur     = document.getElementById('time-dur');
+const lyricsInner = document.getElementById('lyrics-inner');
+const noLyrics    = document.getElementById('no-lyrics');
+
+let state = {
+  title: '', artist: '', source: '', cover: '',
+  pos: 0, dur: 0,
+  playing: true,  // assume playing until told otherwise
+  wordSync: false,
+  // Full lyrics mode
+  lines: [],
+  activeIdx: -1,
+  fullLyricsLoaded: false,
+  fullLyricsRequested: false,
+  // Fallback ring-buffer mode (if getfulllyrics fails/not available)
+  fallbackMode: false,
+  currentLyric: ''
+};
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+function fmt(ms) {
+  const s = Math.floor(ms / 1000);
+  return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+}
+
+function updateSubtitle() {
+  const parts = [];
+  if (state.source) parts.push(state.source);
+  if (state.artist) parts.push(state.artist);
+  subtitleEl.textContent = parts.join(' · ') || '—';
+}
+
+function updateProgress() {
+  if (state.dur <= 0) return;
+  // Snap timer to real position when pos: arrives (within drift threshold handled elsewhere)
+  const pct = Math.min(timerMs / state.dur, 1) * 100;
+  progFill.style.width = pct + '%';
+  timeDur.textContent = fmt(state.dur);
+}
+
+// Local tick — smooths out the 5s GSMTC position updates
+// Internal timer — runs independently, syncs to pos: only if drift > threshold
+let timerMs = 0;
+const DRIFT_THRESHOLD = 3000; // ms
+
+setInterval(() => {
+  if (!state.playing || state.dur <= 0) return;
+  timerMs = Math.min(timerMs + 1000, state.dur);
+  timePos.textContent = fmt(timerMs);
+}, 1000);
+
+function getEstimatedPos() {
+  return timerMs;
+}
+
+function stripTags(s) {
+  return (s || '').replace(/<color=[^>]+>/g, '').replace(/<\/color>/g, '');
+}
+
+function renderWordSync(raw) {
+  return (raw || '')
+    .replace(/<color=yellow>(.*?)<\/color>/g, '<span class="ws-active">$1</span>')
+    .replace(/<color=[^>]+>(.*?)<\/color>/g, '$1');
+}
+
+// ── Full lyrics mode ──────────────────────────────────────────────────────────
+
+function loadFullLyrics(plainText) {
+  // plainText: newline-separated lines, no timestamps
+  const lines = plainText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  state.lines = lines;
+  state.activeIdx = -1;
+  state.fullLyricsLoaded = lines.length > 0;
+
+  lyricsInner.innerHTML = '';
+  noLyrics.classList.toggle('show', lines.length === 0);
+
+  for (let i = 0; i < lines.length; i++) {
+    const div = document.createElement('div');
+    div.className = 'lyric-line';
+    div.dataset.idx = i;
+    div.textContent = lines[i];
+    lyricsInner.appendChild(div);
+  }
+}
+
+// Find best matching line index for incoming lyric text.
+// During playback: always take the next occurrence forward from current position.
+// On initial anchor (activeIdx === -1): use position ratio to find starting line.
+function findLineIdx(text) {
+  if (state.lines.length === 0) return -1;
+  const clean = text.trim().toLowerCase();
+
+  // Initial anchor — use position ratio to land in the right place
+  if (state.activeIdx < 0) {
+    const ratio = state.dur > 0 ? getEstimatedPos() / state.dur : 0;
+    const idealIdx = Math.floor(ratio * state.lines.length);
+    // Find all matches, pick closest to ideal
+    const candidates = [];
+    for (let i = 0; i < state.lines.length; i++) {
+      if (state.lines[i].trim().toLowerCase() === clean) candidates.push(i);
+    }
+    if (candidates.length === 0) return -1;
+    return candidates.reduce((best, i) =>
+      Math.abs(i - idealIdx) < Math.abs(best - idealIdx) ? i : best
+    , candidates[0]);
+  }
+
+  // During playback — take the next occurrence at or after current index
+  for (let i = state.activeIdx + 1; i < state.lines.length; i++) {
+    if (state.lines[i].trim().toLowerCase() === clean) return i;
+  }
+  // Nothing ahead — line not found (resend or out of sync), return -1
+  return -1;
+}
+
+function setActiveLine(idx, rawText) {
+  if (idx === state.activeIdx) return;
+  state.activeIdx = idx;
+
+  const els = lyricsInner.querySelectorAll('.lyric-line');
+  els.forEach((el, i) => {
+    el.classList.toggle('active', i === idx);
+    if (i !== idx && state.lines[i]) el.textContent = state.lines[i];
+  });
+
+  // Apply word sync immediately if we have raw text
+  if (rawText && state.wordSync) {
+    const activeEl = lyricsInner.querySelector('.lyric-line.active');
+    if (activeEl) activeEl.innerHTML = renderWordSync(rawText);
+  }
+
+  requestAnimationFrame(scrollToActive);
+}
+
+function scrollToActive() {
+  const activeEl = lyricsInner.querySelector('.lyric-line.active');
+  if (!activeEl) return;
+  const scrollEl = document.getElementById('lyrics-scroll');
+  const scrollH  = scrollEl.offsetHeight;
+  const lineCenter = activeEl.offsetTop + activeEl.offsetHeight / 2;
+  // Pin active line at 35% from top so scroll always moves downward
+  const offset = lineCenter - scrollH * 0.35;
+  lyricsInner.style.transform = `translateY(${-offset}px)`;
+}
+
+function applyWordSync(rawText) {
+  if (state.activeIdx < 0) return;
+  const el = lyricsInner.querySelector('.lyric-line.active');
+  if (!el) return;
+  el.innerHTML = renderWordSync(rawText);
+}
+
+// Handle incoming lyric: line in full lyrics mode
+function fullLyricsUpdateLyric(rawText) {
+  const text = stripTags(rawText);
+
+  if (!text) return; // empty gap — keep current line highlighted
+
+  // Same text as current line — could be a resend OR a repeated line later in the song
+  if (text === state.currentLyric) {
+    // Check if this line appears again after the current position
+    const clean = text.trim().toLowerCase();
+    let nextOccurrence = -1;
+    for (let i = state.activeIdx + 1; i < state.lines.length; i++) {
+      if (state.lines[i].trim().toLowerCase() === clean) {
+        nextOccurrence = i;
+        break;
+      }
+    }
+
+    if (nextOccurrence === state.activeIdx + 1) {
+      // Immediately adjacent identical line (two consecutive identical lines) — advance.
+      // For distant repeats (chorus repetitions), rely on findLineIdx to advance
+      // naturally when the server sends the lyric as a new text. Ratio-based jumping
+      // causes false positives because it assumes lines are uniformly distributed.
+      setActiveLine(nextOccurrence, rawText);
+      return;
+    }
+
+    // Treat as resend — just update word sync in place
+    if (state.wordSync) applyWordSync(rawText);
+    return;
+  }
+
+  state.currentLyric = text;
+
+  const idx = findLineIdx(text);
+  if (idx < 0) return; // not found (e.g. metadata header line)
+
+  // findLineIdx only returns forward matches during playback, so this
+  // should rarely trigger — but guard against it just in case
+  if (idx < state.activeIdx) return;
+
+  setActiveLine(idx, rawText);
+}
+
+// ── Fallback ring-buffer mode (when full lyrics aren't available) ─────────────
+
+const HISTORY = 3;
+const FUTURE  = 5;
+let fallbackHistory = [];
+let fallbackActiveIdx = -1;
+
+function fallbackUpdateLyric(rawText) {
+  const text = stripTags(rawText);
+
+  if (text === state.currentLyric) {
+    if (state.wordSync) {
+      const activeEl = lyricsInner.querySelector('.lyric-line.active');
+      if (activeEl) activeEl.innerHTML = renderWordSync(rawText);
+    }
+    return;
+  }
+
+  state.currentLyric = text;
+
+  if (text) {
+    if (fallbackActiveIdx >= 0) fallbackHistory[fallbackActiveIdx].status = 'sung';
+    fallbackHistory.push({ text, raw: rawText, status: 'active' });
+    if (fallbackHistory.length > 30) fallbackHistory.shift();
+    fallbackActiveIdx = fallbackHistory.length - 1;
+  } else {
+    if (fallbackActiveIdx >= 0) fallbackHistory[fallbackActiveIdx].status = 'sung';
+  }
+
+  fallbackRebuildDOM();
+  requestAnimationFrame(scrollToActive);
+}
+
+function fallbackRebuildDOM() {
+  lyricsInner.innerHTML = '';
+  if (fallbackHistory.length === 0) return;
+
+  const start = Math.max(0, fallbackActiveIdx - HISTORY);
+  const end   = Math.min(fallbackHistory.length - 1, fallbackActiveIdx + FUTURE);
+
+  for (let i = start; i <= end; i++) {
+    const item = fallbackHistory[i];
+    const div  = document.createElement('div');
+    div.className = 'lyric-line' + (item.status === 'active' ? ' active' : '');
+    if (item.status !== 'active') div.style.color = 'rgba(255,255,255,0.38)';
+    if (item.status === 'active' && state.wordSync) {
+      div.innerHTML = renderWordSync(item.raw);
+    } else {
+      div.textContent = item.text;
+    }
+    lyricsInner.appendChild(div);
+  }
+}
+
+// ── Song change ───────────────────────────────────────────────────────────────
+
+function resetSong() {
+  state.lines = [];
+  state.activeIdx = -1;
+  state.fullLyricsLoaded = false;
+  state.fullLyricsRequested = false;
+  state.fallbackMode = false;
+  state.currentLyric = '';
+  state.dur = 0;
+  timerMs = 0;
+  timePos.textContent = fmt(0);
+  timeDur.textContent = fmt(0);
+  progFill.style.transition = 'none';
+  progFill.style.width = '0%';
+  progFill.offsetWidth; // force reflow so transition suppression takes effect
+  progFill.style.transition = '';
+  fallbackHistory = [];
+  fallbackActiveIdx = -1;
+  lyricsInner.innerHTML = '';
+  lyricsInner.style.transform = '';
+  noLyrics.classList.remove('show');
+}
+
+// ── Message handler ───────────────────────────────────────────────────────────
+
+let lyricsWs = null;
+
+function handleMessage(key, val) {
+  switch (key) {
+    case 'title':
+      if (val === state.title) break;
+      state.title = val;
+      titleEl.textContent = val || '—';
+      resetSong();
+      break;
+    case 'artist':
+      state.artist = val;
+      updateSubtitle();
+      break;
+    case 'source':
+      state.source = val;
+      updateSubtitle();
+      break;
+    case 'cover':
+      if (val && val !== state.cover) {
+        state.cover = val;
+        artEl.src = val;
+        artShadow.style.backgroundImage = `url(${val})`;
+        bgImg.style.backgroundImage = `url(${val})`;
+      }
+      break;
+    case 'pos': {
+      state.pos = parseInt(val);
+      // Only drift-sync once we have the new song's duration.
+      // A stale pos: from the previous song can arrive just after resetSong()
+      // and would otherwise snap timerMs to the old song's end position,
+      // corrupting the initial lyric anchor.
+      if (state.dur > 0) {
+        const drift = state.pos - timerMs; // positive = pos is ahead, negative = pos is behind
+        if (drift > DRIFT_THRESHOLD || drift < -15000) {
+          // Snap forward if we're behind by >3s, or backwards only if >15s off
+          timerMs = state.pos;
+          timePos.textContent = fmt(timerMs);
+        }
+      }
+      updateProgress();
+      break;
+    }
+    case 'dur':
+      state.dur = parseInt(val);
+      updateProgress();
+      break;
+    case 'lyric':
+      if (state.fullLyricsLoaded) {
+        fullLyricsUpdateLyric(val);
+      } else {
+        // First lyric arriving = OMB has lyrics ready, request full set
+        if (!state.fullLyricsRequested && lyricsWs && lyricsWs.readyState === WebSocket.OPEN) {
+          state.fullLyricsRequested = true;
+          lyricsWs.send('getfulllyrics');
+        }
+        fallbackUpdateLyric(val);
+      }
+      break;
+    case 'status':
+      state.playing = val === 'true';
+      break;
+    case 'wordsync':
+      state.wordSync = val === 'true';
+      break;
+    case 'fulllyrics':
+      if (val && val.trim().length > 0) {
+        loadFullLyrics(val);
+        // If we already have a current lyric, find and highlight it immediately
+        if (state.currentLyric) {
+          const idx = findLineIdx(state.currentLyric);
+          if (idx >= 0) setActiveLine(idx);
+          // word sync will re-apply on next lyric: message
+        }
+      }
+      // if empty, stay in fallback — don't set fallbackMode, just keep going
+      break;
+    case 'lyricsrc':
+      // Lyrics source changed — reset full-lyrics state and re-request from new source.
+      // Keep song/progress/cover untouched; only the lyric lines change.
+      state.lines = [];
+      state.activeIdx = -1;
+      state.fullLyricsLoaded = false;
+      state.currentLyric = '';
+      state.fallbackMode = false;
+      fallbackHistory = [];
+      fallbackActiveIdx = -1;
+      lyricsInner.innerHTML = '';
+      lyricsInner.style.transform = '';
+      noLyrics.classList.remove('show');
+      // Request the new source's lyrics; if WS not ready, the next lyric: will trigger it
+      state.fullLyricsRequested = false;
+      if (lyricsWs && lyricsWs.readyState === WebSocket.OPEN) {
+        state.fullLyricsRequested = true;
+        lyricsWs.send('getfulllyrics');
+      }
+      break;
+  }
+}
+
+// ── WebSocket ─────────────────────────────────────────────────────────────────
+
+function makeSocket(url, onOpen, onClose) {
+  const ws = new WebSocket(url);
+  ws.onopen  = () => onOpen && onOpen(ws);
+  ws.onclose = () => {
+    onClose && onClose();
+    setTimeout(() => makeSocket(url, onOpen, onClose), RECONNECT_DELAY);
+  };
+  ws.onmessage = (e) => {
+    const i = e.data.indexOf(':');
+    if (i < 0) return;
+    handleMessage(e.data.substring(0, i), e.data.substring(i + 1));
+  };
+  return ws;
+}
+
+makeSocket(WS_MEDIA_URL, null, null);
+
+// Store reference to lyrics socket so we can send commands
+makeSocket(WS_LYRICS_URL,
+  (ws) => { lyricsWs = ws; },
+  () => { lyricsWs = null; }
+);
+</script>
+</body>
+</html>
